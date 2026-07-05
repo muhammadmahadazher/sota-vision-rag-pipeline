@@ -7,3 +7,4 @@ torch
 ultralytics
 insightface
 onnxruntime-gpu
+google-genai
