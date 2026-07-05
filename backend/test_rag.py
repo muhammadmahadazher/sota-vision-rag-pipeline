@@ -57,5 +57,23 @@ class TestRAGManager(unittest.IsolatedAsyncioTestCase):
         # After block, qdrant client close should have been called
         mock_qdrant_instance.close.assert_called_once()
 
+
+    @patch.dict(os.environ, clear=True)
+    async def test_missing_qdrant_url(self):
+        manager = RAGManager()
+        with self.assertRaises(ValueError) as context:
+            async with manager:
+                pass
+        self.assertIn("QDRANT_URL environment variable is missing", str(context.exception))
+
+    @patch.dict(os.environ, {"QDRANT_URL": "http://localhost:6333"}, clear=True)
+    async def test_missing_gemini_api_key(self):
+        manager = RAGManager()
+        with self.assertRaises(ValueError) as context:
+            async with manager:
+                pass
+        self.assertIn("GEMINI_API_KEY environment variable is missing", str(context.exception))
+
 if __name__ == '__main__':
+
     unittest.main()
