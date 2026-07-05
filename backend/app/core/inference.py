@@ -35,19 +35,19 @@ class VisionPipeline:
         """
         # 1. Object Detection with RT-DETR
         det_results = self.rtdetr.predict(frame, conf=0.25, verbose=False)
-        objects = []
-        for res in det_results:
-            boxes = res.boxes.xyxy.cpu().numpy()
-            scores = res.boxes.conf.cpu().numpy()
-            labels = res.boxes.cls.cpu().numpy()
-            names = res.names
-
-            for box, score, label in zip(boxes, scores, labels):
-                objects.append({
-                    "bbox": box.tolist(),
-                    "label": names[int(label)],
-                    "confidence": float(score)
-                })
+        objects = [
+            {
+                "bbox": box.tolist(),
+                "label": res.names[int(label)],
+                "confidence": float(score)
+            }
+            for res in det_results
+            for box, score, label in zip(
+                res.boxes.xyxy.cpu().numpy(),
+                res.boxes.conf.cpu().numpy(),
+                res.boxes.cls.cpu().numpy()
+            )
+        ]
 
         # 2. Face Analysis with InsightFace
         face_results = self.face_analysis.get(frame)
