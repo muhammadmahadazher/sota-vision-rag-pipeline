@@ -31,7 +31,7 @@ class RAGManager:
 
         # Check and create Qdrant collection if not exists
         collections_response = await self.qdrant_client.get_collections()
-        collection_names = [col.name for col in collections_response.collections]
+        collection_names = {col.name for col in collections_response.collections}
 
         if self.collection_name not in collection_names:
             logger.info(f"Creating Qdrant collection: {self.collection_name}")
