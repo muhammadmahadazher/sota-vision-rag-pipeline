@@ -5,9 +5,9 @@ import json
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
 from google import genai
-from google.genai import types
 
 logger = logging.getLogger(__name__)
+
 
 class RAGManager:
     def __init__(self):
@@ -44,8 +44,8 @@ class RAGManager:
                 collection_name=self.collection_name,
                 vectors_config=models.VectorParams(
                     size=512,  # Example: SigLIP dimensions
-                    distance=models.Distance.COSINE
-                )
+                    distance=models.Distance.COSINE,
+                ),
             )
 
         return self
@@ -57,16 +57,15 @@ class RAGManager:
 
     async def index_entity(self, vector: list, metadata: dict) -> None:
         point = models.PointStruct(
-            id=str(uuid.uuid4()),
-            vector=vector,
-            payload=metadata
+            id=str(uuid.uuid4()), vector=vector, payload=metadata
         )
         await self.qdrant_client.upsert(
-            collection_name=self.collection_name,
-            points=[point]
+            collection_name=self.collection_name, points=[point]
         )
 
-    async def synthesize_context(self, current_metadata: dict, historical_context: list) -> str:
+    async def synthesize_context(
+        self, current_metadata: dict, historical_context: list
+    ) -> str:
         prompt = (
             f"Current Frame Metadata: {json.dumps(current_metadata)}\n"
             f"Historical Context: {json.dumps(historical_context)}"
@@ -77,7 +76,7 @@ class RAGManager:
         )
 
         response = await self.genai_client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=prompt,
             config=config,
         )
