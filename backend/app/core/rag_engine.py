@@ -55,6 +55,25 @@ class RAGManager:
             await self.qdrant_client.close()
             logger.info("Closed Qdrant client connection.")
 
+
+    async def index_entities(self, vectors: list[list], metadatas: list[dict]) -> None:
+        if len(vectors) != len(metadatas):
+            raise ValueError("The number of vectors and metadatas must match.")
+
+        points = [
+            models.PointStruct(
+                id=str(uuid.uuid4()),
+                vector=vec,
+                payload=meta
+            )
+            for vec, meta in zip(vectors, metadatas)
+        ]
+
+        await self.qdrant_client.upsert(
+            collection_name=self.collection_name,
+            points=points
+        )
+
     async def index_entity(self, vector: list, metadata: dict) -> None:
         point = models.PointStruct(
             id=str(uuid.uuid4()), vector=vector, payload=metadata
