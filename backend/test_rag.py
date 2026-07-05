@@ -39,9 +39,9 @@ class TestRAGManager(unittest.IsolatedAsyncioTestCase):
             await m.index_entities(vectors, metadatas)
             mock_qdrant_instance.upsert.assert_called_once()
             called_kwargs = mock_qdrant_instance.upsert.call_args.kwargs
-            self.assertEqual(len(called_kwargs['points']), 2)
-            self.assertEqual(called_kwargs['points'][0].payload, {"info": "test1"})
-            self.assertEqual(called_kwargs['points'][1].payload, {"info": "test2"})
+            self.assertEqual(len(called_kwargs['points'].payloads), 2)
+            self.assertEqual(called_kwargs['points'].payloads[0], {"info": "test1"})
+            self.assertEqual(called_kwargs['points'].payloads[1], {"info": "test2"})
 
 
             # Test synthesize_context
