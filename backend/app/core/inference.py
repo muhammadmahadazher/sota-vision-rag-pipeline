@@ -51,16 +51,14 @@ class VisionPipeline:
 
         # 2. Face Analysis with InsightFace
         face_results = self.face_analysis.get(frame)
-        faces = []
-        for face in face_results:
-            faces.append({
-                "bbox": face.bbox.tolist(),
-                "confidence": float(face.det_score),
-                "embedding": face.embedding.tolist() if face.embedding is not None else None,
-                "landmarks": face.landmark_2d_106.tolist() if face.landmark_2d_106 is not None else None,
-                "gender": int(face.gender),
-                "age": int(face.age)
-            })
+        faces = [{
+            "bbox": face.bbox.tolist(),
+            "confidence": float(face.det_score),
+            "embedding": face.embedding.tolist() if face.embedding is not None else None,
+            "landmarks": face.landmark_2d_106.tolist() if face.landmark_2d_106 is not None else None,
+            "gender": int(face.gender),
+            "age": int(face.age)
+        } for face in face_results]
 
         return {
             "objects": objects,
