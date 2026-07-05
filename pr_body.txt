@@ -1,0 +1,7 @@
+🎯 **What:** The prompt injection vulnerability fixed. In `backend/app/core/rag_engine.py`, user-controlled data (`current_metadata` and `historical_context`) was being directly concatenated with system instructions to form the prompt. This allowed users to inject adversarial metadata to alter or hijack the prompt instructions.
+
+⚠️ **Risk:** The potential impact if left unfixed. An attacker could craft specific metadata to manipulate the LLM output, bypass safety guidelines, exfiltrate data, or cause unintended operations within the backend processing pipelines.
+
+🛡️ **Solution:** How the fix addresses the vulnerability.
+- Safely serialized `current_metadata` and `historical_context` as pure data strings using `json.dumps()` before injecting them into the prompt.
+- Explicitly separated the application's instructions from the prompt content by moving them to the `system_instruction` field using `types.GenerateContentConfig()`. This ensures the Gemini model always interprets the user-provided data strictly as context data rather than executable instructions.

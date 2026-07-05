@@ -1,6 +1,7 @@
 import os
 import logging
 import uuid
+import json
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
 from google import genai
@@ -67,13 +68,17 @@ class RAGManager:
 
     async def synthesize_context(self, current_metadata: dict, historical_context: list) -> str:
         prompt = (
-            f"Current Frame Metadata: {current_metadata}\n"
-            f"Historical Context: {historical_context}\n"
-            "Please provide a clean narrative description of the events occurring."
+            f"Current Frame Metadata: {json.dumps(current_metadata)}\n"
+            f"Historical Context: {json.dumps(historical_context)}"
+        )
+
+        config = types.GenerateContentConfig(
+            system_instruction="Please provide a clean narrative description of the events occurring."
         )
 
         response = await self.genai_client.aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
+            config=config,
         )
         return response.text
