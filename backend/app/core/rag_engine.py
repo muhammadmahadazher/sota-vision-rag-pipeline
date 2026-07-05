@@ -20,7 +20,9 @@ class RAGManager:
         if not qdrant_url:
             raise ValueError("QDRANT_URL environment variable is missing.")
 
-        self.qdrant_client = AsyncQdrantClient(url=qdrant_url)
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
+
+        self.qdrant_client = AsyncQdrantClient(url=qdrant_url, api_key=qdrant_api_key)
 
         # Google GenAI init
         gemini_api_key = os.getenv("GEMINI_API_KEY")

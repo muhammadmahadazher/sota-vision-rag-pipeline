@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 # Set required environment variables for tests
 os.environ["QDRANT_URL"] = "http://localhost:6333"
+os.environ["QDRANT_API_KEY"] = "fake-qdrant-key"
 os.environ["GEMINI_API_KEY"] = "fake-key"
 
 from app.core.rag_engine import RAGManager
