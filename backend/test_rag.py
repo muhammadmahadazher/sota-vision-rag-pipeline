@@ -31,6 +31,18 @@ class TestRAGManager(unittest.IsolatedAsyncioTestCase):
             # Test index_entity
             await m.index_entity([0.1]*512, {"info": "test"})
             mock_qdrant_instance.upsert.assert_called_once()
+            mock_qdrant_instance.upsert.reset_mock()
+
+            # Test index_entities
+            vectors = [[0.1]*512, [0.2]*512]
+            metadatas = [{"info": "test1"}, {"info": "test2"}]
+            await m.index_entities(vectors, metadatas)
+            mock_qdrant_instance.upsert.assert_called_once()
+            called_kwargs = mock_qdrant_instance.upsert.call_args.kwargs
+            self.assertEqual(len(called_kwargs['points']), 2)
+            self.assertEqual(called_kwargs['points'][0].payload, {"info": "test1"})
+            self.assertEqual(called_kwargs['points'][1].payload, {"info": "test2"})
+
 
             # Test synthesize_context
             # Mock the genai client aio models generate content
