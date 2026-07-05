@@ -42,12 +42,11 @@ class VisionPipeline:
             labels = res.boxes.cls.cpu().numpy()
             names = res.names
 
-            for box, score, label in zip(boxes, scores, labels):
-                objects.append({
-                    "bbox": box.tolist(),
-                    "label": names[int(label)],
-                    "confidence": float(score)
-                })
+            objects.extend({
+                "bbox": box.tolist(),
+                "label": names[int(label)],
+                "confidence": float(score)
+            } for box, score, label in zip(boxes, scores, labels))
 
         # 2. Face Analysis with InsightFace
         face_results = self.face_analysis.get(frame)
