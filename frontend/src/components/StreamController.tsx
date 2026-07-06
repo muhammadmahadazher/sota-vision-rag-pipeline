@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Camera, Upload, Square } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface DetectedObject {
   bbox: number[];
@@ -30,6 +31,7 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamSource, setStreamSource] = useState<"webcam" | "video" | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Store latest detections to draw smoothly over the video
   const latestDetections = useRef<{ objects: DetectedObject[], faces: DetectedFace[] }>({ objects: [], faces: [] });
@@ -91,7 +93,7 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
       // Label
       ctx.fillStyle = "rgba(236, 72, 153, 0.9)";
       const genderStr = face.gender === 1 ? "M" : "F";
-      const label = `Face ${genderStr}${face.age ? `, ${face.age}` : ''}`;
+      const label = `Face ${genderStr}${face.age ? ", " + face.age : ''}`;
 
       ctx.font = "14px sans-serif";
       const textWidth = ctx.measureText(label).width;
@@ -225,8 +227,7 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processFile = (file: File) => {
     if (file && videoRef.current) {
       const url = URL.createObjectURL(file);
       videoRef.current.srcObject = null;
@@ -234,6 +235,32 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
       videoRef.current.play();
       setStreamSource("video");
       setIsStreaming(true);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.type === "video/mp4" || file.type === "video/x-msvideo" || file.name.endsWith('.avi'))) {
+      processFile(file);
     }
   };
 
@@ -253,21 +280,45 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full h-full max-w-4xl mx-auto">
-      <div className="glass-panel rounded-3xl p-4 overflow-hidden relative group transition-all duration-300">
+    <motion.div layout className="flex flex-col gap-6 w-full h-full max-w-4xl mx-auto">
+      <div className="glass-panel backdrop-blur-xl border border-white/10 dark:border-black/20 shadow-2xl rounded-3xl p-4 overflow-hidden relative group transition-all duration-300">
 
-        {/* Main Video Viewport */}
-        <div className="relative rounded-2xl overflow-hidden bg-black/5 dark:bg-white/5 aspect-video flex items-center justify-center border border-black/5 dark:border-white/5">
-          {!isStreaming && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-foreground/50 z-10">
+        {/* Main Video Viewport with Drag & Drop */}
+        <div
+          className={`relative rounded-2xl overflow-hidden bg-black/5 dark:bg-white/5 aspect-video flex items-center justify-center border border-black/5 dark:border-white/5 transition-all duration-300 ${isDragging ? 'ring-4 ring-blue-500/50 scale-[0.98]' : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <AnimatePresence>
+            {isDragging && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="absolute inset-0 bg-blue-500/10 backdrop-blur-sm z-40 flex flex-col items-center justify-center text-blue-500"
+              >
+                <motion.div
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                >
+                  <Upload className="w-16 h-16 mb-4" />
+                </motion.div>
+                <p className="text-lg font-bold">Drop to Ingest Video Stream</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!isStreaming && !isDragging && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-foreground/50 z-10 pointer-events-none">
               <Camera className="w-12 h-12 mb-4 opacity-50" />
-              <p className="font-medium">No active stream</p>
+              <p className="font-medium">No active stream. Drag & Drop a video file here.</p>
             </div>
           )}
 
           <video
             ref={videoRef}
-            className="absolute inset-0 w-full h-full object-contain z-20"
+            className="absolute inset-0 w-full h-full object-contain z-20 pointer-events-none"
             playsInline
             muted
             loop={streamSource === "video"}
@@ -304,7 +355,7 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
               <input
                 type="file"
                 ref={fileInputRef}
-                accept="video/mp4,video/webm,video/ogg"
+                accept="video/mp4,video/webm,video/ogg,video/avi,video/x-msvideo"
                 className="hidden"
                 onChange={handleFileUpload}
               />
@@ -320,6 +371,6 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
