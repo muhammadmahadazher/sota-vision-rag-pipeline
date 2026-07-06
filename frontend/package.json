@@ -10,6 +10,8 @@
     "test": "vitest"
   },
   "dependencies": {
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
     "next": "15.5.20",
     "react": "19.1.0",
     "react-dom": "19.1.0"
@@ -27,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.20",
     "jsdom": "^29.1.1",
+    "playwright": "^1.61.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.9"
