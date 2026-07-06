@@ -1,17 +1,1 @@
-This PR finalizes, upgrades, and packages the full-stack SOTA Multimodal Vision RAG pipeline:
-
-**Phase 1: Local CUDA Environment Fixes & Stabilization**
-- Pinned `onnxruntime-gpu==1.20.1` and added NVIDIA CUDA runtime dependencies.
-- Added platform-specific Windows logic in `main.py` using `os.add_dll_directory` to load NVIDIA DLLs.
-- Ensured a graceful fallback from `CUDAExecutionProvider` to `CPUExecutionProvider` in `VisionPipeline`.
-
-**Phase 2: Advanced Feature & Interactive UI Upgrades**
-- Created `POST /api/query` in the FastAPI backend to parse natural language queries via Gemini and filter historical frames based on objects.
-- Integrated a real-time stream alert chat box into the `/ws/stream` loop.
-- Refactored `StreamController` to support a smooth HTML5 drag-and-drop area.
-- Applied fluid Framer Motion triggers and high-refraction glassmorphic design system to the frontend components.
-
-**Phase 3: Turnkey Component Portability & Launch Scripts**
-- Updated `.gitignore` to prevent tracking environments and databases.
-- Created standalone `setup.sh`/`setup.bat` scripts to initialize `.venv`, download Qdrant, and install NPM dependencies.
-- Created robust `run.sh`/`run.bat` automation wrappers to concurrently launch Qdrant, Uvicorn, and Next.js processes while gracefully trapping exits.
+feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism\n\n- Add floating chat input to NarrationPanel for Conversational Search via /api/query.\n- Upgrade StreamController to support HTML5 drag-and-drop of videos.\n- Implement glassmorphic design and Framer Motion layout transitions across UI components.

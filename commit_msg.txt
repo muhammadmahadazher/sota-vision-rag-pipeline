@@ -1,12 +1,1 @@
-feat: complete SOTA multimodal vision rag pipeline
-
-- Pinned onnxruntime-gpu==1.20.1 and added NVIDIA CUDA runtime dependencies.
-- Added platform-specific Windows logic in main.py to load NVIDIA DLLs.
-- Ensured a graceful fallback from CUDAExecutionProvider to CPUExecutionProvider.
-- Created POST /api/query to parse natural language queries via Gemini and filter historical frames.
-- Integrated a real-time stream alert chat box into the /ws/stream loop.
-- Refactored StreamController to support an HTML5 drag-and-drop area.
-- Applied fluid Framer Motion triggers and high-refraction glassmorphic design system.
-- Updated .gitignore to prevent tracking environments and databases.
-- Created setup.sh/setup.bat to initialize .venv, download Qdrant, and install NPM dependencies.
-- Created run.sh/run.bat automation wrappers to launch processes concurrently.
+feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism
