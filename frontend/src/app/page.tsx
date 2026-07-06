@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StreamController } from "@/components/StreamController";
 import { NarrationPanel } from "@/components/NarrationPanel";
+import { motion } from "framer-motion";
 
 export default function Home() {
   const [narrative, setNarrative] = useState<string>("");
@@ -31,14 +32,14 @@ export default function Home() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
 
         {/* Left column: Video Stream (Takes up 8 cols on large screens) */}
-        <div className="lg:col-span-8 flex flex-col">
+        <motion.div layout className="lg:col-span-8 flex flex-col">
           <StreamController onNarrativeUpdate={(n) => setNarrative(n)} />
-        </div>
+        </motion.div>
 
         {/* Right column: Narration Panel (Takes up 4 cols on large screens) */}
-        <div className="lg:col-span-4 flex flex-col">
+        <motion.div layout className="lg:col-span-4 flex flex-col">
           <NarrationPanel narrative={narrative} />
-        </div>
+        </motion.div>
 
       </div>
     </main>

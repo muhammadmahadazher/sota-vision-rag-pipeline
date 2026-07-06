@@ -129,7 +129,9 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const ws = new WebSocket("ws://localhost:8000/ws/stream");
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/stream`;
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => console.log("WebSocket connected");
     ws.onclose = () => console.log("WebSocket disconnected");

@@ -63,7 +63,7 @@ export function NarrationPanel({ narrative }: NarrationPanelProps) {
     setQueryResult(null);
 
     try {
-      const response = await fetch("http://localhost:8000/api/query", {
+      const response = await fetch("/api/query", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
