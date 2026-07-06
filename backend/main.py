@@ -4,24 +4,32 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.rag_engine import RAGManager
+from app.core.inference import VisionPipeline
+from app.api.stream import router as stream_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing RAGManager on startup...")
+    logger.info("Initializing RAGManager and VisionPipeline on startup...")
     try:
         async with RAGManager() as rag_manager:
             app.state.rag_engine = rag_manager
             logger.info("RAGManager initialized and stored in app.state.")
+
+            logger.info("Initializing VisionPipeline...")
+            app.state.vision_pipeline = VisionPipeline()
+            logger.info("VisionPipeline initialized and stored in app.state.")
+
             yield
     except Exception as e:
-        logger.error(f"Failed to initialize RAGManager: {e}")
+        logger.error(f"Failed to initialize RAGManager or VisionPipeline: {e}")
         app.state.rag_engine = None
+        app.state.vision_pipeline = None
         yield
     finally:
-        logger.info("Closing RAGManager on shutdown...")
+        logger.info("Closing resources on shutdown...")
 
 app = FastAPI(title="SOTA Vision RAG API", lifespan=lifespan)
 
@@ -40,3 +48,5 @@ app.add_middleware(
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+app.include_router(stream_router)
