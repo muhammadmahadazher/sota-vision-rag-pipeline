@@ -5,6 +5,7 @@ import json
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
 from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -60,18 +61,16 @@ class RAGManager:
         if len(vectors) != len(metadatas):
             raise ValueError("The number of vectors and metadatas must match.")
 
-        points = [
-            models.PointStruct(
-                id=str(uuid.uuid4()),
-                vector=vec,
-                payload=meta
-            )
-            for vec, meta in zip(vectors, metadatas)
-        ]
+        # Optimization: Use models.Batch for significantly faster Qdrant serialization vs list of PointStructs
+        batch = models.Batch(
+            ids=[str(uuid.uuid4()) for _ in range(len(vectors))],
+            vectors=vectors,
+            payloads=metadatas
+        )
 
         await self.qdrant_client.upsert(
             collection_name=self.collection_name,
-            points=points
+            points=batch
         )
 
     async def index_entity(self, vector: list, metadata: dict) -> None:
