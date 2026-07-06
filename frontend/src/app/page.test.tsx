@@ -1,25 +1,32 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import Home from './page';
 
+// Mock inner components so they don't break tests trying to use browser APIs
+vi.mock('@/components/StreamController', () => ({
+  StreamController: () => <div data-testid="stream-controller" />
+}));
+
+vi.mock('@/components/NarrationPanel', () => ({
+  NarrationPanel: () => <div data-testid="narration-panel" />
+}));
+
 describe('Home Page', () => {
-  it('renders the Next.js logo', () => {
+  it('renders the header title', () => {
     render(<Home />);
-    const logo = screen.getByAltText('Next.js logo');
-    expect(logo).toBeInTheDocument();
+    const title = screen.getByText(/Vision RAG Interface/i);
+    expect(title).toBeInTheDocument();
   });
 
-  it('renders the Vercel deploy link', () => {
+  it('renders the stream controller', () => {
     render(<Home />);
-    const deployLink = screen.getByRole('link', { name: /Deploy now/i });
-    expect(deployLink).toBeInTheDocument();
-    expect(deployLink).toHaveAttribute('href', expect.stringContaining('vercel.com/new'));
+    const streamController = screen.getByTestId('stream-controller');
+    expect(streamController).toBeInTheDocument();
   });
 
-  it('renders the "Read our docs" link', () => {
+  it('renders the narration panel', () => {
     render(<Home />);
-    const docsLink = screen.getByRole('link', { name: /Read our docs/i });
-    expect(docsLink).toBeInTheDocument();
-    expect(docsLink).toHaveAttribute('href', expect.stringContaining('nextjs.org/docs'));
+    const narrationPanel = screen.getByTestId('narration-panel');
+    expect(narrationPanel).toBeInTheDocument();
   });
 });
