@@ -1,4 +1,5 @@
 import asyncio
+import time
 import cv2
 import numpy as np
 import logging
@@ -10,6 +11,8 @@ router = APIRouter()
 
 async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
     vision_pipeline = websocket.app.state.vision_pipeline
+    last_narrative = ""
+    last_synthesis_time = 0.0
 
     while True:
         try:
@@ -49,21 +52,28 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
                     except Exception as e:
                         logger.error(f"Error querying Qdrant: {e}")
 
-            # Synthesize context
-            narrative = ""
-            if rag_engine:
-                try:
-                    # Create current metadata copy, exclude embeddings to save tokens
-                    current_metadata = {
-                        "objects": results.get("objects", []),
-                        "faces": [
-                            {k: v for k, v in face.items() if k != "embedding"}
-                            for face in results.get("faces", [])
-                        ]
-                    }
-                    narrative = await rag_engine.synthesize_context(current_metadata, historical_context)
-                except Exception as e:
-                    logger.error(f"Error synthesizing context: {e}")
+            # Throttled Context Synthesis to respect free tier limit (15 requests per minute)
+            current_time = time.time()
+            narrative = last_narrative
+
+            if current_time - last_synthesis_time >= 4.0:
+                if rag_engine:
+                    try:
+                        # Create current metadata copy, exclude embeddings to save tokens
+                        current_metadata = {
+                            "objects": results.get("objects", []),
+                            "faces": [
+                                {k: v for k, v in face.items() if k != "embedding"}
+                                for face in results.get("faces", [])
+                            ]
+                        }
+                        narrative = await rag_engine.synthesize_context(current_metadata, historical_context)
+                        last_narrative = narrative
+                        last_synthesis_time = current_time
+                    except Exception as e:
+                        logger.error(f"Error synthesizing context: {e}")
+                        # Keep reusing last narrative on failure (e.g. rate limit error) to prevent blank pages
+                        narrative = last_narrative
 
             # Send JSON payload
             payload = {
