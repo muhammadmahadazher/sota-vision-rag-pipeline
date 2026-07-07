@@ -8,7 +8,7 @@ echo ==========================================
 :: 1. Verify Node.js
 node -v >nul 2>&1
 if !errorlevel! neq 0 (
-    echo [ERROR] Node.js is not found. Please install Node.js (v18+) to run the frontend.
+    echo [ERROR] Node.js is not found. Please install Node.js v18 or newer to run the frontend.
     exit /b 1
 )
 echo [OK] Node.js is available.
