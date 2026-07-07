@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.rag_engine import RAGManager
 from app.core.inference import VisionPipeline
 from app.api.stream import router as stream_router
-from app.api.query import router as query_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,4 +50,3 @@ def health_check():
     return {"status": "ok"}
 
 app.include_router(stream_router)
-app.include_router(query_router)

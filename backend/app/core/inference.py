@@ -1,6 +1,9 @@
+import os
+import yaml
 import numpy as np
 import torch
-from ultralytics import RTDETR
+import ultralytics
+from ultralytics import YOLOWorld
 from insightface.app import FaceAnalysis
 import logging
 
@@ -8,32 +11,67 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class VisionPipeline:
-    def __init__(self, rtdetr_model_name: str = 'rtdetr-l.pt'):
+    def __init__(self, model_name: str = 'yolov8s-worldv2.pt'):
         """
-        Initializes the VisionPipeline with RT-DETR and InsightFace models.
-        Attempts to target CUDA execution providers if available.
+        Initializes the VisionPipeline with YOLO-World pre-trained on Objects365 vocabulary
+        and InsightFace FaceAnalysis with hardware execution fallback lifecycles.
         """
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        logger.info(f"Using device: {self.device}")
+        # Load Objects365 class names list from Ultralytics cfg
+        try:
+            path = os.path.join(os.path.dirname(ultralytics.__file__), 'cfg', 'datasets', 'Objects365.yaml')
+            with open(path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+            class_names = list(data['names'].values())
+            logger.info(f"Loaded {len(class_names)} classes from Objects365 dataset YAML.")
+        except Exception as e:
+            logger.warning(f"Could not load Objects365 class names list: {e}. Using default COCO vocabulary.")
+            class_names = None
 
-        # Load RT-DETR model
-        logger.info(f"Loading RT-DETR model: {rtdetr_model_name}")
-        self.rtdetr = RTDETR(rtdetr_model_name)
-        self.rtdetr.to(self.device)
+        # 1. Load YOLO-World model with hardware fallback
+        try:
+            if torch.cuda.is_available():
+                self.device = 'cuda'
+                logger.info("Attempting CUDA device mount for YOLO-World detector...")
+                self.rtdetr = YOLOWorld(model_name)
+                self.rtdetr.to(self.device)
+                logger.info("YOLO-World successfully mounted on CUDA GPU.")
+            else:
+                raise RuntimeError("CUDA is not available on this host.")
+        except Exception as e:
+            logger.warning(f"CUDA initialization failed for detector: {e}. Falling back to CPU.")
+            self.device = 'cpu'
+            self.rtdetr = YOLOWorld(model_name)
+            self.rtdetr.to('cpu')
 
-        # Initialize InsightFace FaceAnalysis
-        logger.info("Initializing InsightFace FaceAnalysis")
-        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device == 'cuda' else ['CPUExecutionProvider']
-        self.face_analysis = FaceAnalysis(providers=providers)
-        self.face_analysis.prepare(ctx_id=0 if self.device == 'cuda' else -1, det_size=(640, 640))
+        # Set vocabulary classes
+        if class_names:
+            try:
+                self.rtdetr.set_classes(class_names)
+                logger.info("Successfully set YOLO-World classes to Objects365 vocabulary.")
+            except Exception as e:
+                logger.error(f"Error setting classes on YOLO-World: {e}")
+
+        # 2. Initialize InsightFace FaceAnalysis with hardware fallback
+        try:
+            if self.device == 'cuda':
+                logger.info("Attempting CUDAExecutionProvider mount for FaceAnalysis...")
+                self.face_analysis = FaceAnalysis(providers=['CUDAExecutionProvider'])
+                self.face_analysis.prepare(ctx_id=0, det_size=(640, 640))
+                logger.info("FaceAnalysis successfully mounted on CUDA Execution Provider.")
+            else:
+                raise RuntimeError("Device is CPU, skipping CUDAExecutionProvider.")
+        except Exception as e:
+            logger.warning(f"CUDA execution provider failed for FaceAnalysis: {e}. Falling back to CPUExecutionProvider.")
+            self.face_analysis = FaceAnalysis(providers=['CPUExecutionProvider'])
+            self.face_analysis.prepare(ctx_id=-1, det_size=(640, 640))
 
     def process_frame(self, frame: np.ndarray) -> dict:
         """
         Processes a raw BGR image frame.
-        Executes object detection with RT-DETR and face localization/embedding with InsightFace.
+        Executes object detection with YOLO-World and face localization/embedding with InsightFace.
         Returns a structured dictionary with results.
         """
-        # 1. Object Detection with RT-DETR
+        # 1. Object Detection with YOLO-World
         det_results = self.rtdetr.predict(frame, conf=0.25, verbose=False)
         objects = []
         for res in det_results:

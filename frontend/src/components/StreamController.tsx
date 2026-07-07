@@ -32,6 +32,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   const [streamSource, setStreamSource] = useState<"webcam" | "video" | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
+  const [isDisconnected, setIsDisconnected] = useState(false);
 
   // Store latest detections to draw smoothly over the video
   const latestDetections = useRef<{ objects: DetectedObject[], faces: DetectedFace[] }>({ objects: [], faces: [] });
@@ -136,7 +137,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     // Standard WebSocket target port 8000 for backend
-    const wsUrl = `ws://127.0.0.1:8000/ws/stream`;
+    const wsUrl = `ws://127.0.0.1:8000/api/stream`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => console.log("WebSocket connected to backend");
@@ -145,6 +146,9 @@ export const StreamController = React.memo(function StreamController({ onNarrati
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        if (data.status === "Stream Disconnected") {
+          setIsDisconnected(true);
+        }
         if (data.narrative && onNarrativeUpdate) {
           onNarrativeUpdate(data.narrative);
         }
@@ -224,6 +228,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   const startWebcam = async () => {
     try {
       setIsIngesting(true);
+      setIsDisconnected(false);
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -241,6 +246,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   const processFile = (file: File) => {
     if (file && videoRef.current) {
       setIsIngesting(true);
+      setIsDisconnected(false);
       const url = URL.createObjectURL(file);
       videoRef.current.srcObject = null;
       videoRef.current.src = url;
@@ -291,6 +297,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
     }
     setIsStreaming(false);
     setStreamSource(null);
+    setIsDisconnected(false);
     latestDetections.current = { objects: [], faces: [] };
   };
 
@@ -367,7 +374,38 @@ export const StreamController = React.memo(function StreamController({ onNarrati
             )}
           </AnimatePresence>
 
-          {!isStreaming && !isDragging && !isIngesting && (
+          {/* Disconnect Overlay */}
+          <AnimatePresence>
+            {isDisconnected && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-red-950/20 backdrop-blur-md z-45 flex flex-col items-center justify-center text-red-500 gap-4"
+              >
+                <div className="relative w-12 h-12 flex items-center justify-center bg-red-500/10 border border-red-500/30 rounded-full animate-pulse">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                    <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v3m-1.5 5.5A6 6 0 1 1 12 6c1.3 0 2.5.4 3.5 1.1"></path>
+                  </svg>
+                </div>
+                <p className="text-xs font-bold uppercase tracking-widest text-red-400">
+                  Stream Interrupted
+                </p>
+                <p className="text-[10px] text-red-400/60 uppercase font-semibold tracking-wider">
+                  Check media source or connection.
+                </p>
+                <button
+                  onClick={stopStream}
+                  className="mt-2 px-4 py-1.5 rounded-full bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-[10px] font-bold uppercase tracking-wider transition-all duration-300"
+                >
+                  Dismiss
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!isStreaming && !isDragging && !isIngesting && !isDisconnected && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 z-10 pointer-events-none gap-3">
               {/* Camera Icon */}
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-30">
