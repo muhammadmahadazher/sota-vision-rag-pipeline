@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 import json
 import logging
+import re
 from qdrant_client.http import models
 from google.genai import types
 
@@ -23,7 +24,21 @@ async def conversational_search(request: QueryRequest, req: Request):
     if not rag_engine:
         raise HTTPException(status_code=500, detail="RAG Engine not initialized.")
 
-    # 1. Parse entity tokens using Gemini
+    # 1. Clean, validate and sanitize input question to prevent XSS / Prompt Injection
+    question = request.question or ""
+    if len(question) > 500:
+        raise HTTPException(status_code=400, detail="Query length exceeds maximum limit of 500 characters.")
+    
+    # Strip control characters (ASCII 0-31, 127-159)
+    question = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', question)
+    # Strip HTML tag brackets and scripts to prevent injection
+    question = re.sub(r'<[^>]*>', '', question)
+    question = question.strip()
+
+    if not question:
+        raise HTTPException(status_code=400, detail="Invalid query input.")
+
+    # Parse entity tokens using Gemini
     try:
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -32,7 +47,7 @@ async def conversational_search(request: QueryRequest, req: Request):
         )
         response = await rag_engine.genai_client.aio.models.generate_content(
             model="gemini-2.5-flash",
-            contents=request.question,
+            contents=question,
             config=config,
         )
         parsed_tokens = EntityTokens.model_validate_json(response.text)

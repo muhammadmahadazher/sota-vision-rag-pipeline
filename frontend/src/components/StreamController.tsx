@@ -20,7 +20,7 @@ interface StreamControllerProps {
   onNarrativeUpdate?: (narrative: string) => void;
 }
 
-export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
+export const StreamController = React.memo(function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -59,54 +59,54 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
 
     const { objects, faces } = latestDetections.current;
 
-    // Draw objects (Neon Blue/Cyan)
+    // Draw objects (Apple System Blue)
     objects.forEach((obj) => {
       const [x1, y1, x2, y2] = obj.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
 
-      ctx.strokeStyle = "rgba(6, 182, 212, 0.9)"; // Neon cyan-500
-      ctx.lineWidth = 3;
-      ctx.shadowColor = "rgba(6, 182, 212, 0.4)";
-      ctx.shadowBlur = 8;
+      ctx.strokeStyle = "rgba(10, 132, 255, 0.95)"; // Apple System Blue
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 4;
       ctx.strokeRect(x1, y1, width, height);
 
       // Label
-      ctx.fillStyle = "rgba(6, 182, 212, 0.95)";
+      ctx.fillStyle = "rgba(10, 132, 255, 0.95)";
       const label = `${obj.label.toUpperCase()} ${(obj.confidence * 100).toFixed(0)}%`;
-      ctx.font = "bold 13px sans-serif";
+      ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
       const textWidth = ctx.measureText(label).width;
 
-      ctx.fillRect(x1, y1 - 24, textWidth + 10, 24);
-      ctx.fillStyle = "#0A0A0C";
+      ctx.fillRect(x1, y1 - 20, textWidth + 8, 20);
+      ctx.fillStyle = "#FFFFFF";
       ctx.shadowBlur = 0;
-      ctx.fillText(label, x1 + 5, y1 - 7);
+      ctx.fillText(label, x1 + 4, y1 - 6);
     });
 
-    // Draw faces (Pink/Magenta Glow)
+    // Draw faces (Apple System Orange)
     faces.forEach((face) => {
       const [x1, y1, x2, y2] = face.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
 
-      ctx.strokeStyle = "rgba(236, 72, 153, 0.9)"; // Neon pink-500
-      ctx.lineWidth = 3;
-      ctx.shadowColor = "rgba(236, 72, 153, 0.4)";
-      ctx.shadowBlur = 8;
+      ctx.strokeStyle = "rgba(255, 159, 10, 0.95)"; // Apple System Orange
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 4;
       ctx.strokeRect(x1, y1, width, height);
 
       // Label
-      ctx.fillStyle = "rgba(236, 72, 153, 0.95)";
+      ctx.fillStyle = "rgba(255, 159, 10, 0.95)";
       const genderStr = face.gender === 1 ? "MALE" : "FEMALE";
       const label = `FACE: ${genderStr}${face.age ? " | AGE: " + face.age : ""}`;
 
-      ctx.font = "bold 13px sans-serif";
+      ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
       const textWidth = ctx.measureText(label).width;
 
-      ctx.fillRect(x1, y1 - 24, textWidth + 10, 24);
-      ctx.fillStyle = "#0A0A0C";
+      ctx.fillRect(x1, y1 - 20, textWidth + 8, 20);
+      ctx.fillStyle = "#FFFFFF";
       ctx.shadowBlur = 0;
-      ctx.fillText(label, x1 + 5, y1 - 7);
+      ctx.fillText(label, x1 + 4, y1 - 6);
     });
   }, []);
 
@@ -307,14 +307,14 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
       transition={layoutTransition.layout} 
       className="flex flex-col gap-6 w-full h-full max-w-4xl mx-auto"
     >
-      <div className="glass-panel backdrop-blur-2xl border border-white/[0.08] shadow-[0_24px_50px_-12px_rgba(0,0,0,0.7)] bg-white/[0.02] rounded-3xl p-6 overflow-hidden relative group transition-all duration-300">
+      <div className="backdrop-blur-3xl bg-[#1C1C1E]/60 border border-white/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-3xl p-6 overflow-hidden relative group transition-all duration-300">
         
         {/* Main Video Viewport with Drag & Drop */}
         <div
-          className={`relative rounded-2xl overflow-hidden bg-black/40 aspect-video flex items-center justify-center border transition-all duration-500 ${
+          className={`relative rounded-2xl overflow-hidden bg-black aspect-video flex items-center justify-center border transition-all duration-500 ${
             isDragging 
-              ? 'border-cyan-400 ring-4 ring-cyan-500/30 scale-[0.99] shadow-[0_0_30px_rgba(6,182,212,0.4)]' 
-              : 'border-white/[0.06]'
+              ? 'border-[#0A84FF]/60 ring-4 ring-[#0A84FF]/20 scale-[0.99] shadow-[0_0_20px_rgba(10,132,255,0.3)]' 
+              : 'border-white/[0.02] shadow-inner'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -327,7 +327,7 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-cyan-950/20 backdrop-blur-sm z-40 flex flex-col items-center justify-center text-cyan-400"
+                className="absolute inset-0 bg-[#0A84FF]/10 backdrop-blur-sm z-40 flex flex-col items-center justify-center text-[#0A84FF]"
               >
                 <motion.div
                   animate={{ y: [0, -12, 0] }}
@@ -335,14 +335,14 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
                   className="mb-4"
                 >
                   {/* Upload SVG */}
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_rgba(10,132,255,0.4)]">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                   </svg>
                 </motion.div>
-                <p className="text-sm font-bold uppercase tracking-wider">Drop to Ingest Video Stream</p>
-                <p className="text-[10px] text-cyan-400/60 mt-1">Supports MP4, AVI</p>
+                <p className="text-xs font-bold uppercase tracking-widest">Drop video file here</p>
+                <p className="text-[10px] text-[#0A84FF]/60 mt-1 uppercase font-semibold tracking-wider">MP4, AVI</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -354,14 +354,14 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-[#0A0A0C]/90 backdrop-blur-md z-45 flex flex-col items-center justify-center text-cyan-400 gap-4"
+                className="absolute inset-0 bg-black/80 backdrop-blur-md z-45 flex flex-col items-center justify-center text-[#0A84FF] gap-4"
               >
-                <div className="relative w-14 h-14">
-                  <span className="absolute inset-0 rounded-full border-4 border-cyan-500/10"></span>
-                  <span className="absolute inset-0 rounded-full border-4 border-t-cyan-400 animate-spin"></span>
+                <div className="relative w-12 h-12">
+                  <span className="absolute inset-0 rounded-full border-4 border-[#0A84FF]/15"></span>
+                  <span className="absolute inset-0 rounded-full border-4 border-t-[#0A84FF] animate-spin"></span>
                 </div>
-                <p className="text-xs font-semibold tracking-widest uppercase text-cyan-400/80 animate-pulse">
-                  Ingesting stream content...
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-[#8E8E93] animate-pulse">
+                  Processing Stream Source...
                 </p>
               </motion.div>
             )}
@@ -370,11 +370,11 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
           {!isStreaming && !isDragging && !isIngesting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 z-10 pointer-events-none gap-3">
               {/* Camera Icon */}
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-30">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                 <circle cx="12" cy="13" r="4"></circle>
               </svg>
-              <p className="text-xs font-medium tracking-wider uppercase">No active stream. Drag & Drop video here.</p>
+              <p className="text-[10px] font-bold tracking-widest uppercase text-[#8E8E93]">No active feed. Drag and drop media.</p>
             </div>
           )}
 
@@ -404,23 +404,23 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
               <button
                 id="btn-start-webcam"
                 onClick={startWebcam}
-                className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 transition-all duration-300 font-semibold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:shadow-[0_0_25px_rgba(6,182,212,0.45)] border border-cyan-400/20 active:scale-95 cursor-pointer"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0A84FF] hover:bg-[#0070E3] text-white transition-all duration-300 font-semibold text-xs uppercase tracking-widest shadow-sm active:scale-95 cursor-pointer"
               >
                 {/* Camera SVG */}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                   <circle cx="12" cy="13" r="4"></circle>
                 </svg>
-                Start Webcam
+                Webcam
               </button>
 
               <button
                 id="btn-upload-video"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-white/[0.04] border border-white/[0.08] text-white hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-300 font-semibold text-xs uppercase tracking-wider shadow-md active:scale-95 cursor-pointer"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#2C2C2E]/60 border border-white/[0.04] text-white hover:bg-[#2C2C2E] transition-all duration-300 font-semibold text-xs uppercase tracking-widest active:scale-95 cursor-pointer"
               >
                 {/* Upload SVG */}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="17 8 12 3 7 8"></polyline>
                   <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -440,18 +440,19 @@ export function StreamController({ onNarrativeUpdate }: StreamControllerProps) {
             <button
               id="btn-stop-stream"
               onClick={stopStream}
-              className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30 transition-all duration-300 font-semibold text-xs uppercase tracking-wider active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all duration-300 font-semibold text-xs uppercase tracking-widest active:scale-95 cursor-pointer"
             >
               {/* Stop SVG */}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                 <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
               </svg>
-              Stop Stream
+              Stop
             </button>
           )}
         </div>
       </div>
     </motion.div>
   );
-}
+});
+
 
