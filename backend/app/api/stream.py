@@ -32,12 +32,12 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
                     if faces and len(faces) > 0 and faces[0].get('embedding') is not None:
                         embedding = faces[0]['embedding']
                         try:
-                            search_result = await rag_engine.qdrant_client.search(
+                            search_result = await rag_engine.qdrant_client.query_points(
                                 collection_name=rag_engine.collection_name,
-                                query_vector=embedding,
+                                query=embedding,
                                 limit=5
                             )
-                            historical_context = [hit.payload for hit in search_result if hit.payload is not None]
+                            historical_context = [hit.payload for hit in search_result.points if hit.payload is not None]
                         except Exception as e:
                             logger.error(f"Error querying Qdrant: {e}")
 

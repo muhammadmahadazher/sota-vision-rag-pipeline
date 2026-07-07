@@ -74,14 +74,14 @@ async def conversational_search(request: QueryRequest, req: Request):
         # Dummy vector for the hybrid search component
         dummy_vector = [0.0] * 512
 
-        search_result = await rag_engine.qdrant_client.search(
+        search_result = await rag_engine.qdrant_client.query_points(
             collection_name=rag_engine.collection_name,
-            query_vector=dummy_vector,
+            query=dummy_vector,
             query_filter=query_filter,
             limit=5
         )
 
-        historical_context = [hit.payload for hit in search_result if hit.payload is not None]
+        historical_context = [hit.payload for hit in search_result.points if hit.payload is not None]
     except Exception as e:
         logger.error(f"Error querying Qdrant: {e}")
         raise HTTPException(status_code=500, detail="Error searching database.")
