@@ -28,15 +28,43 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   const wsRef = useRef<WebSocket | null>(null);
   const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Core stream states
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamSource, setStreamSource] = useState<"webcam" | "video" | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
 
-  // Store latest detections to draw smoothly over the video
+  // Config settings states
+  const [showLabels, setShowLabels] = useState(true);
+  const [boxStyle, setBoxStyle] = useState<"corners" | "outline" | "full">("corners");
+  const [confThreshold, setConfThreshold] = useState(0.25);
+  const [useTTS, setUseTTS] = useState(false);
+
+  // Telemetry HUD states
+  const [fps, setFps] = useState(0);
+  const [dbLatency, setDbLatency] = useState(0);
+  const [device, setDevice] = useState("CPU");
+  const [apiStatus, setApiStatus] = useState<"offline" | "connected">("offline");
+  const [dbStatus, setDbStatus] = useState<"offline" | "connected">("offline");
+  const [activeDetections, setActiveDetections] = useState<{ objects: DetectedObject[], faces: DetectedFace[] }>({ objects: [], faces: [] });
+
+  // Refs for config settings to prevent closure stale values
+  const showLabelsRef = useRef(showLabels);
+  const boxStyleRef = useRef(boxStyle);
+  const confThresholdRef = useRef(confThreshold);
+  const useTTSRef = useRef(useTTS);
+  const lastSpokenNarrative = useRef("");
+  const frameTimes = useRef<number[]>([]);
   const latestDetections = useRef<{ objects: DetectedObject[], faces: DetectedFace[] }>({ objects: [], faces: [] });
 
+  // Keep configuration refs in sync
+  useEffect(() => { showLabelsRef.current = showLabels; }, [showLabels]);
+  useEffect(() => { boxStyleRef.current = boxStyle; }, [boxStyle]);
+  useEffect(() => { confThresholdRef.current = confThreshold; }, [confThreshold]);
+  useEffect(() => { useTTSRef.current = useTTS; }, [useTTS]);
+
+  // Draw overlay method
   const drawOverlay = useCallback(() => {
     if (!overlayCanvasRef.current || !videoRef.current) return;
 
@@ -46,7 +74,6 @@ export const StreamController = React.memo(function StreamController({ onNarrati
 
     if (!ctx) return;
 
-    // Match canvas dimensions to video actual size for proper coordinate mapping
     if (video.videoWidth > 0 && video.videoHeight > 0) {
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
@@ -59,59 +86,127 @@ export const StreamController = React.memo(function StreamController({ onNarrati
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const { objects, faces } = latestDetections.current;
+    const currentConf = confThresholdRef.current;
+    const currentStyle = boxStyleRef.current;
+    const currentShowLabels = showLabelsRef.current;
 
-    // Draw objects (Apple System Blue)
+    // Helper for drawing Apple-style glowing brackets
+    const drawCorners = (x: number, y: number, w: number, h: number, color: string) => {
+      const len = Math.min(18, w / 4, h / 4);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = "round";
+
+      // Top-Left
+      ctx.beginPath();
+      ctx.moveTo(x + len, y);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x, y + len);
+      ctx.stroke();
+
+      // Top-Right
+      ctx.beginPath();
+      ctx.moveTo(x + w - len, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w, y + len);
+      ctx.stroke();
+
+      // Bottom-Left
+      ctx.beginPath();
+      ctx.moveTo(x, y + h - len);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x + len, y + h);
+      ctx.stroke();
+
+      // Bottom-Right
+      ctx.beginPath();
+      ctx.moveTo(x + w - len, y + h);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x + w, y + h - len);
+      ctx.stroke();
+    };
+
+    // Draw objects
     objects.forEach((obj) => {
+      if (obj.confidence < currentConf) return;
+
       const [x1, y1, x2, y2] = obj.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
+      const color = "rgba(10, 132, 255, 0.95)"; // Apple System Blue
 
-      ctx.strokeStyle = "rgba(10, 132, 255, 0.95)"; // Apple System Blue
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
       ctx.shadowBlur = 4;
-      ctx.strokeRect(x1, y1, width, height);
 
-      // Label
-      ctx.fillStyle = "rgba(10, 132, 255, 0.95)";
-      const label = `${obj.label.toUpperCase()} ${(obj.confidence * 100).toFixed(0)}%`;
-      ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
-      const textWidth = ctx.measureText(label).width;
+      if (currentStyle === "corners") {
+        drawCorners(x1, y1, width, height, color);
+      } else if (currentStyle === "outline") {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(x1, y1, width, height);
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, width, height);
+      }
 
-      ctx.fillRect(x1, y1 - 20, textWidth + 8, 20);
-      ctx.fillStyle = "#FFFFFF";
-      ctx.shadowBlur = 0;
-      ctx.fillText(label, x1 + 4, y1 - 6);
+      if (currentShowLabels) {
+        ctx.fillStyle = color;
+        const labelText = `${obj.label.toUpperCase()} ${(obj.confidence * 100).toFixed(0)}%`;
+        ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
+        const textWidth = ctx.measureText(labelText).width;
+
+        ctx.fillRect(x1, y1 - 20, textWidth + 8, 20);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.shadowBlur = 0;
+        ctx.fillText(labelText, x1 + 4, y1 - 6);
+      }
     });
 
-    // Draw faces (Apple System Orange)
+    // Draw faces
     faces.forEach((face) => {
+      if (face.confidence < currentConf) return;
+
       const [x1, y1, x2, y2] = face.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
+      const color = "rgba(255, 159, 10, 0.95)"; // Apple System Orange
 
-      ctx.strokeStyle = "rgba(255, 159, 10, 0.95)"; // Apple System Orange
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
       ctx.shadowBlur = 4;
-      ctx.strokeRect(x1, y1, width, height);
 
-      // Label
-      ctx.fillStyle = "rgba(255, 159, 10, 0.95)";
-      const genderStr = face.gender === 1 ? "MALE" : "FEMALE";
-      const label = `FACE: ${genderStr}${face.age ? " | AGE: " + face.age : ""}`;
+      if (currentStyle === "corners") {
+        drawCorners(x1, y1, width, height, color);
+      } else if (currentStyle === "outline") {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(x1, y1, width, height);
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, width, height);
+      }
 
-      ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
-      const textWidth = ctx.measureText(label).width;
+      if (currentShowLabels) {
+        ctx.fillStyle = color;
+        const genderStr = face.gender === 1 ? "MALE" : "FEMALE";
+        const labelText = `FACE: ${genderStr}${face.age ? " | AGE: " + face.age : ""}`;
+        ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
+        const textWidth = ctx.measureText(labelText).width;
 
-      ctx.fillRect(x1, y1 - 20, textWidth + 8, 20);
-      ctx.fillStyle = "#FFFFFF";
-      ctx.shadowBlur = 0;
-      ctx.fillText(label, x1 + 4, y1 - 6);
+        ctx.fillRect(x1, y1 - 20, textWidth + 8, 20);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.shadowBlur = 0;
+        ctx.fillText(labelText, x1 + 4, y1 - 6);
+      }
     });
   }, []);
 
-  // Render loop to keep overlay matched with video
+  // Frame render loop hook
   useEffect(() => {
     let animationFrameId: number;
 
@@ -119,7 +214,6 @@ export const StreamController = React.memo(function StreamController({ onNarrati
       if (isStreaming) {
         drawOverlay();
       } else {
-        // clear if not streaming
         if (overlayCanvasRef.current) {
           const ctx = overlayCanvasRef.current.getContext('2d');
           if (ctx) ctx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
@@ -136,28 +230,63 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    // Standard WebSocket target port 8000 for backend
     const wsUrl = `ws://127.0.0.1:8000/api/stream`;
     const ws = new WebSocket(wsUrl);
 
-    ws.onopen = () => console.log("WebSocket connected to backend");
-    ws.onclose = () => console.log("WebSocket disconnected");
-    ws.onerror = (error) => console.error("WebSocket error:", error);
+    ws.onopen = () => {
+      console.log("WebSocket connected to backend");
+      setApiStatus("connected");
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket disconnected");
+      setApiStatus("offline");
+      setDbStatus("offline");
+      setFps(0);
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      setApiStatus("offline");
+    };
+
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.status === "Stream Disconnected") {
           setIsDisconnected(true);
         }
-        if (data.narrative && onNarrativeUpdate) {
-          onNarrativeUpdate(data.narrative);
+
+        // Calculate rolling FPS
+        const now = performance.now();
+        frameTimes.current = frameTimes.current.filter(t => now - t < 1000);
+        frameTimes.current.push(now);
+        setFps(frameTimes.current.length);
+
+        // Update database and hardware device info from response payload
+        setDbStatus("connected");
+        setDbLatency(Math.round(data.qdrant_latency_ms || 0));
+        setDevice(data.device ? data.device.toUpperCase() : "CPU");
+
+        if (data.narrative) {
+          if (onNarrativeUpdate) onNarrativeUpdate(data.narrative);
+
+          // Audio text-to-speech implementation
+          if (useTTSRef.current && data.narrative !== lastSpokenNarrative.current) {
+            lastSpokenNarrative.current = data.narrative;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(data.narrative);
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+          }
         }
 
-        // Update local ref for overlay drawing
-        latestDetections.current = {
-          objects: data.objects || [],
-          faces: data.faces || []
-        };
+        // Update state and refs
+        const objects = data.objects || [];
+        const faces = data.faces || [];
+        latestDetections.current = { objects, faces };
+        setActiveDetections({ objects, faces });
+
       } catch (e) {
         console.error("Error parsing websocket message:", e);
       }
@@ -176,7 +305,6 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   const startFrameExtraction = () => {
     if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
 
-    // Set matching backend frame skipping cadence (e.g. 5fps = 200ms)
     streamIntervalRef.current = setInterval(() => {
       if (!videoRef.current || !hiddenCanvasRef.current || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         return;
@@ -199,8 +327,8 @@ export const StreamController = React.memo(function StreamController({ onNarrati
         if (blob && wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(blob);
         }
-      }, "image/jpeg", 0.7);
-    }, 200); // 5 FPS
+      }, "image/jpeg", 0.75);
+    }, 200); // 5 FPS frame skipping
   };
 
   const stopFrameExtraction = () => {
@@ -280,7 +408,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && (file.type === "video/mp4" || file.type === "video/x-msvideo" || file.name.endsWith('.avi') || file.name.endsWith('.mp4'))) {
+    if (file && (file.type === "video/mp4" || file.type === "video/webm" || file.name.endsWith('.mp4') || file.name.endsWith('.webm'))) {
       processFile(file);
     }
   };
@@ -299,6 +427,9 @@ export const StreamController = React.memo(function StreamController({ onNarrati
     setStreamSource(null);
     setIsDisconnected(false);
     latestDetections.current = { objects: [], faces: [] };
+    setActiveDetections({ objects: [], faces: [] });
+    setFps(0);
+    setDbLatency(0);
   };
 
   const layoutTransition = {
@@ -307,6 +438,16 @@ export const StreamController = React.memo(function StreamController({ onNarrati
       ease: [0.16, 1, 0.3, 1]
     } as const
   };
+
+  // Group active objects by count for density stats
+  const objectDensityCounts = activeDetections.objects.reduce((acc: { [key: string]: number }, cur) => {
+    if (cur.confidence >= confThreshold) {
+      acc[cur.label] = (acc[cur.label] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  const densityEntries = Object.entries(objectDensityCounts).sort((a, b) => b[1] - a[1]);
 
   return (
     <motion.div 
@@ -341,7 +482,6 @@ export const StreamController = React.memo(function StreamController({ onNarrati
                   transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
                   className="mb-4"
                 >
-                  {/* Upload SVG */}
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_rgba(10,132,255,0.4)]">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
@@ -349,7 +489,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
                   </svg>
                 </motion.div>
                 <p className="text-xs font-bold uppercase tracking-widest">Drop video file here</p>
-                <p className="text-[10px] text-[#0A84FF]/60 mt-1 uppercase font-semibold tracking-wider">MP4, AVI</p>
+                <p className="text-[10px] text-[#0A84FF]/60 mt-1 uppercase font-semibold tracking-wider">MP4, WEBM</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -407,7 +547,6 @@ export const StreamController = React.memo(function StreamController({ onNarrati
 
           {!isStreaming && !isDragging && !isIngesting && !isDisconnected && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 z-10 pointer-events-none gap-3">
-              {/* Camera Icon */}
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-30">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                 <circle cx="12" cy="13" r="4"></circle>
@@ -435,7 +574,65 @@ export const StreamController = React.memo(function StreamController({ onNarrati
         {/* Hidden Extraction Canvas */}
         <canvas ref={hiddenCanvasRef} className="hidden" />
 
-        {/* Controls */}
+        {/* Interactive Floating Control Bar */}
+        <div className="mt-6 p-4 rounded-2xl bg-black/40 border border-white/[0.02] flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-start flex-wrap">
+            {/* Show Labels Toggle */}
+            <label className="flex items-center gap-2 text-xs font-semibold text-[#8E8E93] cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={showLabels} 
+                onChange={(e) => setShowLabels(e.target.checked)} 
+                className="w-4 h-4 rounded border-white/[0.08] bg-[#2C2C2E] accent-[#0A84FF] transition-all"
+              />
+              LABELS
+            </label>
+
+            {/* Bounding Box Style Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold text-[#8E8E93] uppercase tracking-wider">BOX STYLE:</span>
+              <select 
+                value={boxStyle} 
+                onChange={(e) => setBoxStyle(e.target.value as "corners" | "outline" | "full")}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#2C2C2E]/60 border border-white/[0.04] text-white focus:outline-none focus:ring-1 focus:ring-[#0A84FF]/50"
+              >
+                <option value="corners">Apple Corners</option>
+                <option value="outline">Google Dash</option>
+                <option value="full">Solid Box</option>
+              </select>
+            </div>
+
+            {/* Text To Speech Narration Reader Toggle */}
+            <label className="flex items-center gap-2 text-xs font-semibold text-[#8E8E93] cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={useTTS} 
+                onChange={(e) => setUseTTS(e.target.checked)} 
+                className="w-4 h-4 rounded border-white/[0.08] bg-[#2C2C2E] accent-[#0A84FF] transition-all"
+              />
+              VOICE (TTS)
+            </label>
+          </div>
+
+          {/* Live Confidence Filter Slider */}
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <span className="text-[10px] font-semibold text-[#8E8E93] uppercase tracking-wider">CONFIDENCE:</span>
+            <input 
+              type="range" 
+              min="0.10" 
+              max="0.90" 
+              step="0.05" 
+              value={confThreshold}
+              onChange={(e) => setConfThreshold(parseFloat(e.target.value))}
+              className="w-28 md:w-32 accent-[#0A84FF] h-1 bg-[#2C2C2E] rounded-lg appearance-none cursor-pointer"
+            />
+            <span className="text-xs font-mono font-bold text-[#0A84FF] w-8">
+              {Math.round(confThreshold * 100)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Action Controls */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
           {!isStreaming ? (
             <>
@@ -444,12 +641,11 @@ export const StreamController = React.memo(function StreamController({ onNarrati
                 onClick={startWebcam}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0A84FF] hover:bg-[#0070E3] text-white transition-all duration-300 font-semibold text-xs uppercase tracking-widest shadow-sm active:scale-95 cursor-pointer"
               >
-                {/* Camera SVG */}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                   <circle cx="12" cy="13" r="4"></circle>
                 </svg>
-                Webcam
+                Webcam Feed
               </button>
 
               <button
@@ -457,7 +653,6 @@ export const StreamController = React.memo(function StreamController({ onNarrati
                 onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#2C2C2E]/60 border border-white/[0.04] text-white hover:bg-[#2C2C2E] transition-all duration-300 font-semibold text-xs uppercase tracking-widest active:scale-95 cursor-pointer"
               >
-                {/* Upload SVG */}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="17 8 12 3 7 8"></polyline>
@@ -469,7 +664,7 @@ export const StreamController = React.memo(function StreamController({ onNarrati
                 id="input-file-upload"
                 type="file"
                 ref={fileInputRef}
-                accept="video/mp4,video/webm,video/ogg,video/avi,video/x-msvideo"
+                accept="video/mp4,video/webm,video/ogg,video/avi"
                 className="hidden"
                 onChange={handleFileUpload}
               />
@@ -480,17 +675,147 @@ export const StreamController = React.memo(function StreamController({ onNarrati
               onClick={stopStream}
               className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all duration-300 font-semibold text-xs uppercase tracking-widest active:scale-95 cursor-pointer"
             >
-              {/* Stop SVG */}
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                 <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
               </svg>
-              Stop
+              Stop Stream
             </button>
           )}
         </div>
       </div>
+
+      {/* Telemetry Diagnostics HUD Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+        
+        {/* Hardware & Diagnostics Stat Cards */}
+        <div className="backdrop-blur-3xl bg-[#1C1C1E]/60 border border-white/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.4)] rounded-3xl p-5 flex flex-col gap-4">
+          <h4 className="text-[10px] font-bold tracking-widest text-[#8E8E93] uppercase border-b border-white/[0.04] pb-2">
+            System Telemetry
+          </h4>
+          <div className="flex flex-col gap-3">
+            {/* FPS Counter */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#8E8E93] font-semibold">FEED FRAME RATE</span>
+              <span className="text-sm font-mono font-bold text-[#0A84FF]">{fps} FPS</span>
+            </div>
+            {/* Vector database search Latency */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#8E8E93] font-semibold">QDRANT QUERY LATENCY</span>
+              <span className="text-sm font-mono font-bold text-emerald-500">{dbLatency} ms</span>
+            </div>
+            {/* Inference Acceleration Device */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#8E8E93] font-semibold">HARDWARE DEVICE</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                device.includes("CUDA") || device.includes("GPU")
+                  ? "bg-green-500/10 text-green-400 border-green-500/20"
+                  : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+              }`}>{device}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Diagnostics Health Connection Status */}
+        <div className="backdrop-blur-3xl bg-[#1C1C1E]/60 border border-white/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.4)] rounded-3xl p-5 flex flex-col gap-4">
+          <h4 className="text-[10px] font-bold tracking-widest text-[#8E8E93] uppercase border-b border-white/[0.04] pb-2">
+            Service Health
+          </h4>
+          <div className="flex flex-col gap-3">
+            {/* FastAPI Backend */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#8E8E93] font-semibold">FASTAPI BACKEND</span>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${apiStatus === "connected" ? "bg-green-500" : "bg-red-500"}`}></span>
+                <span className="text-[10px] font-bold uppercase text-[#E5E5EA]">{apiStatus}</span>
+              </div>
+            </div>
+            {/* Qdrant DB */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#8E8E93] font-semibold">QDRANT VECTOR DB</span>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${dbStatus === "connected" ? "bg-green-500" : "bg-red-500"}`}></span>
+                <span className="text-[10px] font-bold uppercase text-[#E5E5EA]">{dbStatus}</span>
+              </div>
+            </div>
+            {/* Gemini API Status */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#8E8E93] font-semibold">GOOGLE GEMINI 2.5</span>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${isStreaming && apiStatus === "connected" ? "bg-green-500" : "bg-zinc-500"}`}></span>
+                <span className="text-[10px] font-bold uppercase text-[#E5E5EA]">
+                  {isStreaming && apiStatus === "connected" ? "ACTIVE" : "STANDBY"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Object Density Inventory HUD */}
+        <div className="backdrop-blur-3xl bg-[#1C1C1E]/60 border border-white/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.4)] rounded-3xl p-5 flex flex-col gap-3">
+          <h4 className="text-[10px] font-bold tracking-widest text-[#8E8E93] uppercase border-b border-white/[0.04] pb-2">
+            Active Object Inventory
+          </h4>
+          <div className="flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+            {densityEntries.length > 0 ? (
+              densityEntries.map(([label, count]) => (
+                <div key={label} className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[11px] font-semibold text-[#E5E5EA]">
+                    <span className="uppercase">{label}</span>
+                    <span className="font-mono">{count}</span>
+                  </div>
+                  <div className="w-full bg-[#2C2C2E] h-1 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }} 
+                      animate={{ width: `${Math.min(100, (count / 10) * 100)}%` }}
+                      className="bg-[#0A84FF] h-full rounded-full"
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-[#8E8E93] text-[10px] py-4 italic">
+                No items detected above conf threshold.
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Face Registry HUD Row */}
+      <AnimatePresence>
+        {activeDetections.faces.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 15 }}
+            className="backdrop-blur-3xl bg-[#1C1C1E]/60 border border-white/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.4)] rounded-3xl p-5 w-full flex flex-col gap-4"
+          >
+            <h4 className="text-[10px] font-bold tracking-widest text-[#8E8E93] uppercase border-b border-white/[0.04] pb-2">
+              Detected Face Registry
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {activeDetections.faces.map((face, index) => {
+                if (face.confidence < confThreshold) return null;
+                const genderLabel = face.gender === 1 ? "Male" : "Female";
+                return (
+                  <div key={index} className="flex items-center gap-3 p-3 rounded-2xl bg-[#2C2C2E]/40 border border-white/[0.02]">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FF950A] to-[#FFD60A] flex items-center justify-center text-white font-bold text-sm shadow-md">
+                      {genderLabel.charAt(0)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-[#E5E5EA]">{genderLabel}</span>
+                      <span className="text-[10px] text-[#8E8E93] font-semibold">AGE EST: {face.age || "N/A"}</span>
+                      <span className="text-[9px] text-[#FF950A] font-mono mt-0.5">MATCH: {Math.round(face.confidence * 100)}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </motion.div>
   );
 });
-
-

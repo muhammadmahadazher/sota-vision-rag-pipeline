@@ -37,17 +37,20 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
 
             historical_context = []
             rag_engine = websocket.app.state.rag_engine
+            qdrant_latency_ms = 0.0
 
             if rag_engine and rag_engine.qdrant_client:
                 faces = results.get('faces', [])
                 if faces and len(faces) > 0 and faces[0].get('embedding') is not None:
                     embedding = faces[0]['embedding']
                     try:
+                        start_time = time.time()
                         search_result = await rag_engine.qdrant_client.query_points(
                             collection_name=rag_engine.collection_name,
                             query=embedding,
                             limit=5
                         )
+                        qdrant_latency_ms = (time.time() - start_time) * 1000
                         historical_context = [hit.payload for hit in search_result.points if hit.payload is not None]
                     except Exception as e:
                         logger.error(f"Error querying Qdrant: {e}")
@@ -70,6 +73,23 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
                         narrative = await rag_engine.synthesize_context(current_metadata, historical_context)
                         last_narrative = narrative
                         last_synthesis_time = current_time
+
+                        # Index face embedding in Qdrant database for persistence memory
+                        faces = results.get('faces', [])
+                        if faces and len(faces) > 0 and faces[0].get('embedding') is not None:
+                            embedding = faces[0]['embedding']
+                            payload_metadata = {
+                                "timestamp": time.time(),
+                                "narrative": narrative,
+                                "objects": results.get("objects", []),
+                                "faces": [
+                                    {k: v for k, v in f.items() if k != "embedding"}
+                                    for f in faces
+                                ]
+                            }
+                            # Index asynchronously
+                            asyncio.create_task(rag_engine.index_entity(embedding, payload_metadata))
+                            logger.info("Face embedding and narrative indexed in Qdrant.")
                     except Exception as e:
                         logger.error(f"Error synthesizing context: {e}")
                         # Keep reusing last narrative on failure (e.g. rate limit error) to prevent blank pages
@@ -83,7 +103,9 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
                     for face in results.get("faces", [])
                 ],
                 "narrative": narrative,
-                "status": "Connected"
+                "status": "Connected",
+                "qdrant_latency_ms": qdrant_latency_ms,
+                "device": getattr(vision_pipeline, "device", "cpu")
             }
 
             try:

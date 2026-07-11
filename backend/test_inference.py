@@ -4,20 +4,22 @@ import numpy as np
 from app.core.inference import VisionPipeline
 
 class TestVisionPipeline(unittest.TestCase):
-    @patch('app.core.inference.RTDETR')
+    @patch('app.core.inference.YOLOWorld')
     @patch('app.core.inference.FaceAnalysis')
-    def test_process_frame(self, MockFaceAnalysis, MockRTDETR):
-        # Setup mock for RTDETR
-        mock_rtdetr_instance = MagicMock()
-        MockRTDETR.return_value = mock_rtdetr_instance
+    def test_process_frame(self, MockFaceAnalysis, MockYOLOWorld):
+        # Setup mock for YOLOWorld
+        mock_yoloworld_instance = MagicMock()
+        MockYOLOWorld.return_value = mock_yoloworld_instance
 
-        # Setup dummy results for RTDETR
+        # Setup dummy results for YOLOWorld
         mock_det_res = MagicMock()
         mock_det_res.boxes.xyxy.cpu.return_value.numpy.return_value = np.array([[10, 20, 100, 200]])
         mock_det_res.boxes.conf.cpu.return_value.numpy.return_value = np.array([0.95])
         mock_det_res.boxes.cls.cpu.return_value.numpy.return_value = np.array([0])
         mock_det_res.names = {0: "person"}
-        mock_rtdetr_instance.predict.return_value = [mock_det_res]
+        mock_yoloworld_instance.predict.return_value = [mock_det_res]
+        mock_yoloworld_instance.to = MagicMock()
+        mock_yoloworld_instance.set_classes = MagicMock()
 
         # Setup mock for FaceAnalysis
         mock_face_analysis_instance = MagicMock()
@@ -42,8 +44,8 @@ class TestVisionPipeline(unittest.TestCase):
         # Call process_frame
         result = pipeline.process_frame(dummy_frame)
 
-        # Verify RTDETR was called correctly
-        mock_rtdetr_instance.predict.assert_called_once_with(dummy_frame, conf=0.25, verbose=False)
+        # Verify YOLOWorld was called correctly
+        mock_yoloworld_instance.predict.assert_called_once_with(dummy_frame, conf=0.25, verbose=False)
 
         # Verify FaceAnalysis was called correctly
         mock_face_analysis_instance.get.assert_called_once_with(dummy_frame)
@@ -67,14 +69,16 @@ class TestVisionPipeline(unittest.TestCase):
         self.assertEqual(face["gender"], 1)
         self.assertEqual(face["age"], 28)
 
-    @patch('app.core.inference.RTDETR')
+    @patch('app.core.inference.YOLOWorld')
     @patch('app.core.inference.FaceAnalysis')
-    def test_process_frame_missing_face_attributes(self, MockFaceAnalysis, MockRTDETR):
+    def test_process_frame_missing_face_attributes(self, MockFaceAnalysis, MockYOLOWorld):
         """Test processing when face embedding or landmarks are None (e.g. failed to compute)"""
         # Setup mocks
-        mock_rtdetr_instance = MagicMock()
-        MockRTDETR.return_value = mock_rtdetr_instance
-        mock_rtdetr_instance.predict.return_value = [] # No objects
+        mock_yoloworld_instance = MagicMock()
+        MockYOLOWorld.return_value = mock_yoloworld_instance
+        mock_yoloworld_instance.predict.return_value = [] # No objects
+        mock_yoloworld_instance.to = MagicMock()
+        mock_yoloworld_instance.set_classes = MagicMock()
 
         mock_face_analysis_instance = MagicMock()
         MockFaceAnalysis.return_value = mock_face_analysis_instance
