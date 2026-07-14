@@ -119,7 +119,7 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
         except Exception as e:
             logger.error(f"Error processing frame: {e}")
             try:
-                await websocket.send_json({"status": "Stream Disconnected", "narrative": f"Internal pipeline error: {str(e)}"})
+                await websocket.send_json({"status": "Stream Disconnected", "narrative": "An internal error occurred while processing the frame."})
             except Exception:
                 pass
 

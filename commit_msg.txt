@@ -1,1 +1,1 @@
-feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism
+🔒 Fix sensitive information exposure in WebSocket error messages

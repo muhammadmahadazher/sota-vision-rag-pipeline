@@ -1,1 +1,3 @@
-feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism\n\n- Add floating chat input to NarrationPanel for Conversational Search via /api/query.\n- Upgrade StreamController to support HTML5 drag-and-drop of videos.\n- Implement glassmorphic design and Framer Motion layout transitions across UI components.
+🎯 **What:** Replaced a raw exception string with a generic error message in `backend/app/api/stream.py` during WebSocket communication.
+⚠️ **Risk:** Sending raw exception strings can expose sensitive system information, internal paths, or database details to connected clients, potentially leading to information disclosure vulnerabilities.
+🛡️ **Solution:** The vulnerability is fixed by displaying a generic user-friendly message (`"An internal error occurred while processing the frame."`) to the client, while continuing to securely log the actual exception internally on the server using `logger.error`.
