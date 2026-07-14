@@ -52,5 +52,32 @@ class TestLifespan(unittest.IsolatedAsyncioTestCase):
         # __aexit__ shouldn't be called if __aenter__ raised an exception
         mock_rag_manager_instance.__aexit__.assert_not_called()
 
+
+from fastapi.testclient import TestClient
+from main import app
+
+class TestCORS(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_cors_preflight_allowed(self):
+        headers = {
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Authorization"
+        }
+        response = self.client.options("/health", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://localhost:3000")
+
+    def test_cors_preflight_disallowed(self):
+        headers = {
+            "Origin": "http://evil.com",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Authorization"
+        }
+        response = self.client.options("/health", headers=headers)
+        self.assertEqual(response.status_code, 400)
+
 if __name__ == '__main__':
     unittest.main()
