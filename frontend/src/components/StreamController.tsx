@@ -230,7 +230,8 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const wsUrl = `ws://127.0.0.1:8000/api/stream`;
+    const apiToken = process.env.NEXT_PUBLIC_API_TOKEN || "secret-token";
+    const wsUrl = `ws://127.0.0.1:8000/api/stream?token=${apiToken}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
