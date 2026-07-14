@@ -1,8 +1,10 @@
+import os
 import asyncio
 import time
 import cv2
 import numpy as np
 import logging
+import secrets
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
@@ -123,8 +125,18 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
             except Exception:
                 pass
 
+from fastapi import status
+
 @router.websocket("/api/stream")
 async def websocket_stream(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    expected_token = os.getenv("API_TOKEN", "secret-token")
+
+    if not token or not secrets.compare_digest(token, expected_token):
+        logger.warning("Unauthorized WebSocket connection attempt.")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await websocket.accept()
     logger.info("Client connected to /api/stream")
 
