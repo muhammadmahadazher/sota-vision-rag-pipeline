@@ -1,1 +1,4 @@
-feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism\n\n- Add floating chat input to NarrationPanel for Conversational Search via /api/query.\n- Upgrade StreamController to support HTML5 drag-and-drop of videos.\n- Implement glassmorphic design and Framer Motion layout transitions across UI components.
+🎯 **What:** Inserted an explicit `except WebSocketDisconnect:` block inside the websocket stream's `receive_bytes` loop.
+💡 **Why:** A broad `except Exception:` block was swallowing the `WebSocketDisconnect` signal raised by the client dropping the connection. This explicit check allows the disconnect to bubble up naturally, improving code maintainability and ensuring the framework accurately detects the disconnect without raising unnecessary errors.
+✅ **Verification:** Ran `python -m unittest discover` successfully. Evaluated the fix logically and verified there are no broad impacts since only a correctly identified specific exception skips the generic trap.
+✨ **Result:** Better control and handling over websocket disconnects in `process_frames_consumer`.

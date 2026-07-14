@@ -139,6 +139,8 @@ async def websocket_stream(websocket: WebSocket):
             # Receive binary frame from client
             try:
                 data = await websocket.receive_bytes()
+            except WebSocketDisconnect:
+                raise
             except Exception as e:
                 logger.warning(f"Error receiving bytes or sudden disconnect: {e}")
                 try:

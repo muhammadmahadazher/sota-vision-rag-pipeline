@@ -1,1 +1,1 @@
-feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism
+🧹 Ensure WebSocketDisconnect bubbles up from receive_bytes loop
