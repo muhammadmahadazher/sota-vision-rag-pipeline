@@ -23,7 +23,7 @@ class VisionPipeline:
                 data = yaml.safe_load(f)
             class_names = list(data['names'].values())
             logger.info(f"Loaded {len(class_names)} classes from Objects365 dataset YAML.")
-        except Exception as e:
+        except (OSError, yaml.YAMLError) as e:
             logger.warning(f"Could not load Objects365 class names list: {e}. Using default COCO vocabulary.")
             class_names = None
 
