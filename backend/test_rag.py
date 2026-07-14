@@ -71,6 +71,25 @@ class TestRAGManager(unittest.IsolatedAsyncioTestCase):
         mock_qdrant_instance.close.assert_called_once()
 
 
+
+    @patch('app.core.rag_engine.AsyncQdrantClient')
+    @patch('app.core.rag_engine.genai.Client')
+    @patch.dict(os.environ, {"QDRANT_URL": "http://localhost:6333", "GEMINI_API_KEY": "fake-key"}, clear=True)
+    async def test_missing_qdrant_api_key(self, mock_genai_client, mock_qdrant_client):
+        # Setup mock for get_collections to simulate no collections existing
+        mock_qdrant_instance = AsyncMock()
+        mock_qdrant_client.return_value = mock_qdrant_instance
+
+        mock_collections_response = MagicMock()
+        mock_collections_response.collections = []
+        mock_qdrant_instance.get_collections.return_value = mock_collections_response
+
+        manager = RAGManager()
+        async with manager as m:
+            self.assertIsNotNone(m.qdrant_client)
+            self.assertIsNotNone(m.genai_client)
+            mock_qdrant_client.assert_called_with(url="http://localhost:6333", api_key=None)
+
     @patch.dict(os.environ, clear=True)
     async def test_missing_qdrant_url(self):
         manager = RAGManager()
