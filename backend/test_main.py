@@ -52,5 +52,21 @@ class TestLifespan(unittest.IsolatedAsyncioTestCase):
         # __aexit__ shouldn't be called if __aenter__ raised an exception
         mock_rag_manager_instance.__aexit__.assert_not_called()
 
+class TestHealthCheck(unittest.TestCase):
+    @patch('main.VisionPipeline')
+    @patch('main.RAGManager')
+    def test_health_check(self, mock_rag_manager_class, mock_vision_pipeline_class):
+        from fastapi.testclient import TestClient
+        from main import app
+
+        mock_rag_manager_instance = AsyncMock()
+        mock_rag_manager_class.return_value = mock_rag_manager_instance
+        mock_rag_manager_instance.__aenter__.return_value = mock_rag_manager_instance
+
+        with TestClient(app) as client:
+            response = client.get("/health")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"status": "ok"})
+
 if __name__ == '__main__':
     unittest.main()
