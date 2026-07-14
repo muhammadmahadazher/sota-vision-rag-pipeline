@@ -27,8 +27,8 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
                 logger.warning("Decoded frame is None (corrupt/empty). Broadcasting Stream Disconnected status.")
                 try:
                     await websocket.send_json({"status": "Stream Disconnected", "narrative": "Corrupted or empty frame received from source."})
-                except Exception:
-                    pass
+                except Exception as inner_e:
+                    logger.warning(f"Failed to send disconnect status: {inner_e}")
                 queue.task_done()
                 continue
 
@@ -120,8 +120,8 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
             logger.error(f"Error processing frame: {e}")
             try:
                 await websocket.send_json({"status": "Stream Disconnected", "narrative": f"Internal pipeline error: {str(e)}"})
-            except Exception:
-                pass
+            except Exception as inner_e:
+                logger.warning(f"Failed to send disconnect status: {inner_e}")
 
 @router.websocket("/api/stream")
 async def websocket_stream(websocket: WebSocket):
@@ -143,8 +143,8 @@ async def websocket_stream(websocket: WebSocket):
                 logger.warning(f"Error receiving bytes or sudden disconnect: {e}")
                 try:
                     await websocket.send_json({"status": "Stream Disconnected", "narrative": "Media source stream was interrupted."})
-                except Exception:
-                    pass
+                except Exception as inner_e:
+                    logger.warning(f"Failed to send disconnect status: {inner_e}")
                 break
 
             try:
