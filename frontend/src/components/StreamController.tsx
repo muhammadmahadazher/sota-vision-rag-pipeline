@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface DetectedObject {
@@ -440,14 +440,16 @@ export const StreamController = React.memo(function StreamController({ onNarrati
   };
 
   // Group active objects by count for density stats
-  const objectDensityCounts = activeDetections.objects.reduce((acc: { [key: string]: number }, cur) => {
-    if (cur.confidence >= confThreshold) {
-      acc[cur.label] = (acc[cur.label] || 0) + 1;
-    }
-    return acc;
-  }, {});
+  const densityEntries = useMemo(() => {
+    const objectDensityCounts = activeDetections.objects.reduce((acc: { [key: string]: number }, cur) => {
+      if (cur.confidence >= confThreshold) {
+        acc[cur.label] = (acc[cur.label] || 0) + 1;
+      }
+      return acc;
+    }, {});
 
-  const densityEntries = Object.entries(objectDensityCounts).sort((a, b) => b[1] - a[1]);
+    return Object.entries(objectDensityCounts).sort((a, b) => b[1] - a[1]);
+  }, [activeDetections.objects, confThreshold]);
 
   return (
     <motion.div 
