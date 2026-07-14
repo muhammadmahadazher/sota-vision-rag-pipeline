@@ -1,1 +1,8 @@
-feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism\n\n- Add floating chat input to NarrationPanel for Conversational Search via /api/query.\n- Upgrade StreamController to support HTML5 drag-and-drop of videos.\n- Implement glassmorphic design and Framer Motion layout transitions across UI components.
+🎯 **What:** The vulnerability fixed
+The backend's `.env` file was being created with default permissions (often `644`), which allowed read access to any user on the system. It contains the sensitive `GEMINI_API_KEY`.
+
+⚠️ **Risk:** The potential impact if left unfixed
+Any other user or compromised process running on the same machine could read the `.env` file, steal the `GEMINI_API_KEY`, and use it to access Gemini AI services. This could result in unauthorized API usage, financial charges, or data exposure.
+
+🛡️ **Solution:** How the fix addresses the vulnerability
+Added `chmod 600 "$ENV_PATH"` commands in `run.sh` immediately after the creation or modification of the `.env` file (and its `.tmp` equivalent). This restricts file permissions so that only the owner of the file can read or write to it, completely blocking unauthorized access by other local users.
