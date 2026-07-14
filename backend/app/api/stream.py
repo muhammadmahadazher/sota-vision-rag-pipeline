@@ -127,6 +127,8 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
 
 from fastapi import status
 
+MAX_PAYLOAD_SIZE_BYTES = 5 * 1024 * 1024  # 5MB limit for incoming frames
+
 @router.websocket("/api/stream")
 async def websocket_stream(websocket: WebSocket):
     token = websocket.query_params.get("token")
@@ -151,6 +153,13 @@ async def websocket_stream(websocket: WebSocket):
             # Receive binary frame from client
             try:
                 data = await websocket.receive_bytes()
+
+                # Security Fix: Check payload size to prevent DoS via memory exhaustion
+                if len(data) > MAX_PAYLOAD_SIZE_BYTES:
+                    logger.warning(f"Payload too large: {len(data)} bytes. Disconnecting.")
+                    await websocket.close(code=1009, reason="Message Too Big")
+                    break
+
             except Exception as e:
                 logger.warning(f"Error receiving bytes or sudden disconnect: {e}")
                 try:
