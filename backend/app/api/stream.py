@@ -21,7 +21,7 @@ async def process_frames_consumer(websocket: WebSocket, queue: asyncio.Queue):
 
             # Decode binary frame
             nparr = np.frombuffer(data, np.uint8)
-            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            frame = await asyncio.to_thread(cv2.imdecode, nparr, cv2.IMREAD_COLOR)
 
             if frame is None:
                 logger.warning("Decoded frame is None (corrupt/empty). Broadcasting Stream Disconnected status.")
