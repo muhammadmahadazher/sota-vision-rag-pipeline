@@ -1,1 +1,3 @@
-feat: upgrade UI with conversational search, drag-and-drop, and glassmorphism
+🔒 Fix insecure environment file permissions
+
+Ensure that the backend/.env file is only readable and writable by the file owner.

@@ -7,6 +7,7 @@ if [ ! -f "$ENV_PATH" ]; then
     echo "[STATUS] Creating backend/.env from boilerplate..."
     echo "QDRANT_URL=http://localhost:6333" > "$ENV_PATH"
     echo "GEMINI_API_KEY=" >> "$ENV_PATH"
+    chmod 600 "$ENV_PATH"
 fi
 
 # Load existing values
@@ -26,6 +27,7 @@ if [ -z "$GEMINI_KEY" ]; then
     # Write environment variables
     echo "QDRANT_URL=http://localhost:6333" > "$ENV_PATH"
     echo "GEMINI_API_KEY=$USER_KEY" >> "$ENV_PATH"
+    chmod 600 "$ENV_PATH"
     GEMINI_KEY="$USER_KEY"
 fi
 
@@ -34,6 +36,7 @@ fi
 grep -v "QDRANT_URL" "$ENV_PATH" > "${ENV_PATH}.tmp"
 echo "QDRANT_URL=http://localhost:6333" >> "${ENV_PATH}.tmp"
 mv "${ENV_PATH}.tmp" "$ENV_PATH"
+chmod 600 "$ENV_PATH"
 
 # Load backend/.env environment variables to current shell
 export QDRANT_URL="http://localhost:6333"
