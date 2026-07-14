@@ -1,4 +1,3 @@
-## 2025-02-09 - Qdrant Vector Upsert Performance
-**Learning:** In the `qdrant-client`, serializing a large list of `models.PointStruct` objects incurs significant overhead due to Pydantic validation (e.g. ~10s for 100k items).
-**Action:** Always use `models.Batch(ids=..., vectors=..., payloads=...)` for bulk insertions (`upsert`), as it drastically reduces serialization time (e.g. ~4s for 100k items) and is the officially recommended approach for batch operations.
-## 2025-02-24 - Efficient Bulk Operations in Qdrant \n**Learning:** Instantiating `models.Batch` explicitly rather than iterating over individual `models.PointStruct` objects leads to significantly lower Python serialization overhead. \n**Action:** Use `models.Batch(ids, vectors, payloads)` for all Qdrant `upsert` operations instead of passing lists of `PointStructs`.\n
+## 2024-07-14 - Optimize redundant list iterations in stream API
+**Learning:** Reusing the result of an expensive or repetitive list comprehension (such as filtering out embeddings from a list of face dictionaries) instead of performing it multiple times across different dictionary declarations significantly reduces CPU cycles and object creation overhead during serialization pipelines.
+**Action:** Always extract and reuse data when the same subset or cleaned version of data is needed multiple times within the same function scope, especially on high-frequency paths like WebSocket frame streaming.
