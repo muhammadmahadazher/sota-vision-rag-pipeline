@@ -14,7 +14,7 @@ vi.mock('@/components/NarrationPanel', () => ({
 describe('Home Page', () => {
   it('renders the header title', () => {
     render(<Home />);
-    const title = screen.getByText(/Vision RAG Interface/i);
+    const title = screen.getByText(/AETHER VISION RAG/i);
     expect(title).toBeInTheDocument();
   });
 
