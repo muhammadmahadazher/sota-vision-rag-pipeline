@@ -7,6 +7,8 @@ os.environ["QDRANT_URL"] = "http://localhost:6333"
 os.environ["GEMINI_API_KEY"] = "fake-key"
 
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from main import app as main_app
 from main import lifespan
 
 class TestLifespan(unittest.IsolatedAsyncioTestCase):
@@ -51,6 +53,16 @@ class TestLifespan(unittest.IsolatedAsyncioTestCase):
         mock_rag_manager_instance.__aenter__.assert_called_once()
         # __aexit__ shouldn't be called if __aenter__ raised an exception
         mock_rag_manager_instance.__aexit__.assert_not_called()
+
+
+class TestHealthEndpoint(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(main_app)
+
+    def test_health_check(self):
+        response = self.client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
 
 if __name__ == '__main__':
     unittest.main()
