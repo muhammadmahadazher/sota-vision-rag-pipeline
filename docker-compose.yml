@@ -14,7 +14,7 @@ services:
     depends_on:
       - qdrant
     environment:
-      VISION_MODE: lite
+      VISION_MODE: ${VISION_MODE:-auto}
       VISION_MODEL: ${VISION_MODEL:-yolov8s-worldv2.pt}
       QDRANT_URL: http://qdrant:6333
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}

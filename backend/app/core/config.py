@@ -47,9 +47,9 @@ class Settings:
             ).split(",")
             if origin.strip()
         )
-        mode = os.getenv("VISION_MODE", "lite").strip().lower()
+        mode = os.getenv("VISION_MODE", "auto").strip().lower()
         if mode not in {"lite", "advanced", "auto"}:
-            mode = "lite"
+            mode = "auto"
         token = os.getenv("API_TOKEN", "").strip() or None
         return cls(
             app_name=os.getenv("APP_NAME", "Aether Vision RAG API"),

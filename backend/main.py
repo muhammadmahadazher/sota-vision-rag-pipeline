@@ -103,6 +103,7 @@ async def health_check() -> dict[str, Any]:
             "mode": getattr(vision, "backend_name", None),
             "device": getattr(vision, "device", None),
             "fallback_reason": getattr(vision, "fallback_reason", None),
+            "hardware": getattr(vision, "hardware", None),
         },
         "rag": (
             rag.capabilities

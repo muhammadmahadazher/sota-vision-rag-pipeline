@@ -28,7 +28,7 @@ class FakeWorker {
         data: { type: "progress", status: "progress", file: "model.onnx", progress: 72 },
       } as MessageEvent);
       this.onmessage?.({
-        data: { type: "ready", runtime: "YOLOS-tiny · WASM" },
+        data: { type: "ready", runtime: "CPU · WASM", vendor: "CPU", accelerator: "wasm", fallbackReason: null },
       } as MessageEvent);
       this.onmessage?.({
         data: {
@@ -37,7 +37,7 @@ class FakeWorker {
           width: 640,
           height: 421,
           elapsedMs: 84,
-          runtime: "YOLOS-tiny · WASM",
+          runtime: "CPU · WASM",
           detections: [
             {
               label: "person",
@@ -127,13 +127,13 @@ describe("StreamController on-device video", () => {
     }, { timeout: 3000 });
     expect(websocket).not.toHaveBeenCalled();
     expect(FakeWorker.instances).toHaveLength(1);
-    expect(String(FakeWorker.instances[0].url)).toContain("local-vision-worker.js");
+    expect(String(FakeWorker.instances[0].url)).toContain("local-vision-worker-v2.js");
     expect(FakeWorker.instances[0].options).toMatchObject({ type: "module" });
     expect(FakeWorker.instances[0].posted.some((message) => message.type === "analyze")).toBe(true);
     expect(onPacketUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({
         objects: [expect.objectContaining({ label: "person", confidence: 0.93 })],
-        device: "YOLOS-tiny · WASM",
+        device: "CPU · WASM",
       }),
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();

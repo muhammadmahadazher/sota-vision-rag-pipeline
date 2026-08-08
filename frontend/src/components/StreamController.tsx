@@ -14,6 +14,7 @@ import {
   buildLocalNarrative, LocalVisionWorkerEvent, LOCAL_VISION_MODEL,
   normalizeWorkerDetections,
 } from "@/vision/localVision";
+import { IS_HOSTED_DEMO, modeAvailableOnDeployment } from "@/vision/deployment";
 import {
   DemoControls, DemoSceneVisual, DetectionOverlay, StatusDot, StreamPrivacyChip,
 } from "./VisionStage";
@@ -144,16 +145,22 @@ export const StreamController = React.memo(function StreamController({
     if (message.type === "progress") {
       if (modeRef.current === "browser" && streamingRef.current) setConnectionState("loading");
       setModelProgress(message.progress);
-      setModelStatus(
-        message.progress === null
+      setModelStatus(message.status === "hardware"
+        ? "Detecting NVIDIA, AMD, or CPU runtime"
+        : message.progress === null
           ? "Preparing the on-device model"
-          : `Downloading vision model · ${message.progress}%`,
-      );
+          : `Downloading vision model · ${message.progress}%`);
+      return;
+    }
+    if (message.type === "runtime") {
+      setModelStatus(message.fallbackReason
+        ? `${message.runtime} fallback active`
+        : `${message.runtime} selected`);
       return;
     }
     if (message.type === "ready") {
       setModelProgress(100);
-      setModelStatus("On-device model cached and ready");
+      setModelStatus(`${message.runtime} ready`);
       if (modeRef.current === "browser" && streamingRef.current) setConnectionState("connected");
       return;
     }
@@ -162,7 +169,8 @@ export const StreamController = React.memo(function StreamController({
       localFailedRef.current = true;
       clearFrameLoop();
       setConnectionState("error");
-      setErrorMessage("On-device inference could not start. Check your internet connection for the first model download, then retry.");
+      setErrorMessage(`On-device inference could not start. ${message.message} ` +
+        "Check the network for the first model download, then retry.");
       workerRef.current?.postMessage({ type: "dispose" });
       workerRef.current = null;
       return;
@@ -193,7 +201,7 @@ export const StreamController = React.memo(function StreamController({
     if (typeof Worker === "undefined") {
       throw new Error("This browser does not support background vision workers.");
     }
-    const worker = new Worker(new URL("local-vision-worker.js", document.baseURI), {
+    const worker = new Worker(new URL(LOCAL_VISION_MODEL.workerAsset, document.baseURI), {
       type: "module",
       name: "aether-local-vision",
     });
@@ -341,6 +349,11 @@ export const StreamController = React.memo(function StreamController({
 
   const beginCamera = async () => {
     setErrorMessage("");
+    if (IS_HOSTED_DEMO && modeRef.current !== "browser") {
+      modeRef.current = "browser";
+      setMode("browser");
+      setConnectionState("demo");
+    }
     try {
       stopMedia();
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -372,6 +385,11 @@ export const StreamController = React.memo(function StreamController({
       return;
     }
     stopMedia();
+    if (IS_HOSTED_DEMO && modeRef.current !== "browser") {
+      modeRef.current = "browser";
+      setMode("browser");
+      setConnectionState("demo");
+    }
     setErrorMessage("");
     const url = URL.createObjectURL(file);
     mediaUrlRef.current = url;
@@ -395,6 +413,10 @@ export const StreamController = React.memo(function StreamController({
 
   const switchMode = (nextMode: VisionMode) => {
     if (nextMode === mode) return;
+    if (!modeAvailableOnDeployment(nextMode)) {
+      setErrorMessage("Self-hosted mode is available when you run Aether locally. The hosted demo always analyzes on this device.");
+      return;
+    }
     stopMedia();
     modeRef.current = nextMode;
     setMode(nextMode);
@@ -446,7 +468,14 @@ export const StreamController = React.memo(function StreamController({
         <div className="toolbar-actions">
           <div className="mode-switch" aria-label="Analysis mode">
             <button className={mode === "browser" ? "is-active" : ""} onClick={() => switchMode("browser")}>On-device</button>
-            <button className={mode === "backend" ? "is-active" : ""} onClick={() => switchMode("backend")}>Self-hosted</button>
+            <button
+              className={mode === "backend" ? "is-active" : ""}
+              onClick={() => switchMode("backend")}
+              disabled={IS_HOSTED_DEMO}
+              title={IS_HOSTED_DEMO ? "Run locally to connect the self-hosted API" : "Connect a local or remote Vision API"}
+            >
+              Self-hosted{IS_HOSTED_DEMO && <small>local only</small>}
+            </button>
           </div>
           <button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open vision settings"><Settings2 size={18} /></button>
         </div>
@@ -589,7 +618,7 @@ export const StreamController = React.memo(function StreamController({
             ) : (
               <div className="connection-fields">
                 <div><p className="section-kicker">On-device engine</p><h4>Private browser inference</h4></div>
-                <p className="local-engine-copy">The pinned YOLOS-tiny model runs in a background worker with Transformers.js. Model files are cached after the first download.</p>
+                <p className="local-engine-copy">The worker selects a high-performance NVIDIA or AMD WebGPU adapter when available, then automatically falls back to quantized CPU/WASM. Model files are cached after the first download.</p>
                 <p className="field-help"><ShieldCheck size={14} /> Video frames never leave this browser in On-device mode.</p>
                 <small className="model-revision">Model revision · {LOCAL_VISION_MODEL.revision.slice(0, 12)}</small>
               </div>

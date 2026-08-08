@@ -80,6 +80,7 @@ async def test_health_reports_component_state():
         backend_name="OpenCV lite",
         device="cpu-lite",
         fallback_reason=None,
+        hardware={"vendor": "CPU", "runtime": "CPU", "accelerated": False},
     )
     app.state.rag_engine = SimpleNamespace(
         capabilities={
@@ -96,4 +97,5 @@ async def test_health_reports_component_state():
     body = response.json()
     assert body["status"] == "ok"
     assert body["vision"]["mode"] == "OpenCV lite"
+    assert body["vision"]["hardware"]["vendor"] == "CPU"
     assert body["rag"]["local_narration"] is True
