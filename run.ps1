@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
+$cachePointerPath = Join-Path $projectRoot ".aether\dependency-cache.txt"
 $backendPath = Join-Path $projectRoot "backend"
 $frontendPath = Join-Path $projectRoot "frontend"
 $envPath = Join-Path $backendPath ".env"
@@ -100,6 +100,22 @@ Write-Host "Checking local dependencies..." -ForegroundColor DarkCyan
 if ($LASTEXITCODE -ne 0) {
     throw "Automatic setup failed with exit code $LASTEXITCODE."
 }
+if (-not (Test-Path -LiteralPath $cachePointerPath)) {
+    throw "Automatic setup did not provide a dependency cache path."
+}
+$dependencyCacheRoot = (Get-Content -LiteralPath $cachePointerPath -Raw).Trim()
+$pythonPath = Join-Path $dependencyCacheRoot "python\Scripts\python.exe"
+$nodeWorkspacePath = Join-Path $dependencyCacheRoot "frontend"
+$nodeModulesPath = Join-Path $nodeWorkspacePath "node_modules"
+$nextCliPath = Join-Path $nodeModulesPath "next\dist\bin\next"
+if (-not (Test-Path -LiteralPath $pythonPath)) {
+    throw "Cached Python environment is missing: $pythonPath"
+}
+if (-not (Test-Path -LiteralPath $nextCliPath)) {
+    throw "Cached Next.js launcher is missing: $nextCliPath"
+}
+$env:NODE_PATH = if ($env:NODE_PATH) { "$nodeModulesPath;$env:NODE_PATH" } else { $nodeModulesPath }
+
 if (-not (Test-Path -LiteralPath $envPath)) {
     Copy-Item -LiteralPath $exampleEnvPath -Destination $envPath
 }
@@ -117,9 +133,10 @@ try {
         -WorkingDirectory $backendPath -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $backendOutput -RedirectStandardError $backendError
 
-    $frontend = Start-Process -FilePath "npm.cmd" `
-        -ArgumentList "run", "dev", "--", "--hostname", "127.0.0.1", "--port", "3000" `
-        -WorkingDirectory $frontendPath -WindowStyle Hidden -PassThru `
+    $quotedNextCli = '"' + $nextCliPath + '"'
+    $frontend = Start-Process -FilePath "node.exe" `
+        -ArgumentList $quotedNextCli, "dev", "--hostname", "127.0.0.1", "--port", "3000" `
+        -WorkingDirectory $nodeWorkspacePath -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $frontendOutput -RedirectStandardError $frontendError
 
     Write-Host "Backend" -NoNewline

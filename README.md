@@ -78,6 +78,8 @@ Windows (one command; missing dependencies are installed automatically):
 
 To install without launching, run `.\setup.bat`. Keep the `run.bat` window open while using the app; press `Ctrl+C` there to stop both services.
 
+Windows keeps generated dependencies, a synchronized frontend working copy, and Next.js build output under `%LOCALAPPDATA%\AetherVision\environments`, with the selected path recorded in `.aether\dependency-cache.txt`. This avoids package/build corruption and long stalls when the repository is stored on Google Drive or OneDrive.
+
 Linux or macOS:
 
 ~~~bash
