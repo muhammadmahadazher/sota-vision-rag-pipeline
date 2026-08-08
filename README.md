@@ -73,8 +73,8 @@ Requires Python 3.12+ and Node.js 20+.
 Windows:
 
 ~~~powershell
-setup.bat
-run.bat
+.\setup.bat
+.\run.bat
 ~~~
 
 Linux or macOS:
@@ -85,7 +85,7 @@ chmod +x setup.sh run.sh
 ./run.sh
 ~~~
 
-Native mode runs the frontend and backend. Vector memory is optional; start Qdrant separately or point **QDRANT_URL** at an existing instance.
+The first setup can take a few minutes; unchanged repeat runs are skipped. The Windows launcher waits for both services and opens the dashboard only after it is ready. Native mode runs the frontend and backend. Vector memory is optional; start Qdrant separately or point **QDRANT_URL** at an existing instance.
 
 ### Advanced vision mode
 
@@ -94,10 +94,10 @@ Advanced mode can download several gigabytes. It automatically selects NVIDIA CU
 Windows:
 
 ~~~powershell
-setup.bat advanced
+.\setup.bat advanced
 Copy-Item backend\.env.example backend\.env
 # Edit backend\.env and set VISION_MODE=advanced
-run.bat
+.\run.bat
 ~~~
 
 Linux or macOS:

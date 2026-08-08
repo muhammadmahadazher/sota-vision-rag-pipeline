@@ -12,11 +12,11 @@
 From the repository root:
 
 ```powershell
-setup.bat
-run.bat
+.\setup.bat
+.\run.bat
 ```
 
-Open <http://127.0.0.1:3000>. **On-device** analyzes webcam/video frames in the browser. **Self-hosted** sends frames to the local WebSocket API at `ws://127.0.0.1:8000/api/stream`.
+The first setup installs the pinned dependencies and can take a few minutes. Re-running `.\setup.bat` skips installation when the lockfiles are unchanged. `.\run.bat` waits for both services, then opens <http://127.0.0.1:3000> automatically. Use `.\run.bat -NoBrowser` to disable automatic opening. **On-device** analyzes frames in the browser; **Self-hosted** uses `ws://127.0.0.1:8000/api/stream`.
 
 The standard profile uses the reliable CPU-lite backend. Browser inference still selects NVIDIA/AMD WebGPU automatically when Chrome or Edge exposes a supported high-performance adapter.
 
@@ -25,7 +25,7 @@ The standard profile uses the reliable CPU-lite backend. Browser inference still
 Install the advanced application dependencies:
 
 ```powershell
-setup.bat advanced
+.\setup.bat advanced
 ```
 
 Then install the PyTorch build matching the machine's accelerator and driver by using the command generated at <https://pytorch.org/get-started/locally/>:
@@ -50,7 +50,7 @@ Pop-Location
 
 Expected accelerated results include `NVIDIA GPU · CUDA` or `AMD GPU · ROCm`. A CPU result includes a `fallback_reason` explaining why acceleration was unavailable.
 
-Start the application with `run.bat`, then inspect the live backend state:
+Start the application with `.\run.bat`, then inspect the live backend state:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/health | ConvertTo-Json -Depth 6

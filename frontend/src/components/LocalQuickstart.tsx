@@ -42,8 +42,8 @@ export function LocalQuickstart() {
       <div className={styles.platformGrid}>
         <article>
           <div className={styles.cardTitle}><span><MonitorUp size={18} /></span><div><strong>Windows</strong><p>Node.js 20.9+ · Python 3.12+ · Git</p></div></div>
-          <CommandBlock label="PowerShell or Command Prompt">{"git clone https://github.com/muhammadmahadazher/sota-vision-rag-pipeline.git\ncd sota-vision-rag-pipeline\nsetup.bat\nrun.bat"}</CommandBlock>
-          <p className={styles.openAt}><CheckCircle2 size={14} /> Open <code>http://127.0.0.1:3000</code></p>
+          <CommandBlock label="PowerShell or Command Prompt">{"git clone https://github.com/muhammadmahadazher/sota-vision-rag-pipeline.git\ncd sota-vision-rag-pipeline\n.\\setup.bat\n.\\run.bat"}</CommandBlock>
+          <p className={styles.openAt}><CheckCircle2 size={14} /> Opens automatically when ready: <code>http://127.0.0.1:3000</code></p>
         </article>
         <article>
           <div className={styles.cardTitle}><span><Terminal size={18} /></span><div><strong>Linux / macOS</strong><p>Node.js 20.9+ · Python 3.12+ · Git</p></div></div>
