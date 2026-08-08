@@ -1,111 +1,116 @@
-import os
-import unittest
-from unittest.mock import patch, MagicMock, AsyncMock
+from dataclasses import replace
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
-# Set required environment variables for tests
-os.environ["QDRANT_URL"] = "http://localhost:6333"
-os.environ["QDRANT_API_KEY"] = "fake-qdrant-key"
-os.environ["GEMINI_API_KEY"] = "fake-key"
+import pytest
 
+from app.core.config import Settings
 from app.core.rag_engine import RAGManager
 
-class TestRAGManager(unittest.IsolatedAsyncioTestCase):
-    @patch('app.core.rag_engine.AsyncQdrantClient')
-    @patch('app.core.rag_engine.genai.Client')
-    async def test_rag_manager_lifecycle(self, mock_genai_client, mock_qdrant_client):
-        # Mock qdrant client methods
-        mock_qdrant_instance = AsyncMock()
-        mock_qdrant_client.return_value = mock_qdrant_instance
 
-        # Setup mock for get_collections to simulate no collections existing
-        mock_collections_response = MagicMock()
-        mock_collections_response.collections = []
-        mock_qdrant_instance.get_collections.return_value = mock_collections_response
-
-        manager = RAGManager()
-        async with manager as m:
-            self.assertIsNotNone(m.qdrant_client)
-            self.assertIsNotNone(m.genai_client)
-            mock_qdrant_instance.create_collection.assert_called_once()
-
-            # Test index_entity
-            await m.index_entity([0.1]*512, {"info": "test"})
-            mock_qdrant_instance.upsert.assert_called_once()
-            mock_qdrant_instance.upsert.reset_mock()
-
-            # Test index_entities
-            vectors = [[0.1]*512, [0.2]*512]
-            metadatas = [{"info": "test1"}, {"info": "test2"}]
-            await m.index_entities(vectors, metadatas)
-            mock_qdrant_instance.upsert.assert_called_once()
-            called_kwargs = mock_qdrant_instance.upsert.call_args.kwargs
-            self.assertEqual(len(called_kwargs['points'].payloads), 2)
-            self.assertEqual(called_kwargs['points'].payloads[0], {"info": "test1"})
-            self.assertEqual(called_kwargs['points'].payloads[1], {"info": "test2"})
+def make_settings(**changes) -> Settings:
+    base = Settings(
+        app_name="test",
+        vision_mode="lite",
+        vision_model="model.pt",
+        api_token=None,
+        allowed_origins=("http://localhost:3000",),
+        qdrant_url=None,
+        qdrant_api_key=None,
+        gemini_api_key=None,
+        gemini_model="gemini-test",
+        rag_strict=False,
+        synthesis_interval_seconds=4.0,
+        max_payload_bytes=1024,
+    )
+    return replace(base, **changes)
 
 
-            # Test synthesize_context
-            # Mock the genai client aio models generate content
-            mock_genai_instance = MagicMock()
-            mock_genai_client.return_value = mock_genai_instance
-            m.genai_client = mock_genai_instance
+@pytest.mark.asyncio
+async def test_rag_lifecycle_and_indexing():
+    qdrant = AsyncMock()
+    qdrant.get_collections.return_value = SimpleNamespace(collections=[])
+    gemini = MagicMock()
 
-            mock_aio = MagicMock()
-            mock_genai_instance.aio = mock_aio
-            mock_models = MagicMock()
-            mock_aio.models = mock_models
+    with patch("app.core.rag_engine.AsyncQdrantClient", return_value=qdrant) as client_class, patch(
+        "app.core.rag_engine.genai.Client",
+        return_value=gemini,
+    ):
+        manager = RAGManager(
+            make_settings(
+                qdrant_url="http://qdrant:6333",
+                qdrant_api_key="key",
+                gemini_api_key="gemini-key",
+            )
+        )
+        async with manager:
+            assert manager.capabilities == {
+                "vector_memory": True,
+                "generative_narration": True,
+                "local_narration": True,
+            }
+            indexed = await manager.index_entity([0.1] * 512, {"label": "test"})
+            assert indexed is True
+            qdrant.create_collection.assert_awaited_once()
+            qdrant.upsert.assert_awaited_once()
 
-            mock_response = MagicMock()
-            mock_response.text = "A clean narrative."
-
-            # We mock the generate_content method which is now async
-            mock_generate = AsyncMock()
-            mock_generate.return_value = mock_response
-            mock_models.generate_content = mock_generate
-
-            result = await m.synthesize_context({"frame": 1}, ["past"])
-            self.assertEqual(result, "A clean narrative.")
-            mock_generate.assert_called_once()
-
-        # After block, qdrant client close should have been called
-        mock_qdrant_instance.close.assert_called_once()
+    client_class.assert_called_once_with(
+        url="http://qdrant:6333",
+        api_key="key",
+        timeout=4,
+    )
+    qdrant.close.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_missing_services_use_local_narration():
+    manager = RAGManager(make_settings())
+    async with manager:
+        narrative = await manager.synthesize_context(
+            {
+                "objects": [
+                    {"label": "person"},
+                    {"label": "package"},
+                    {"label": "package"},
+                ],
+                "faces": [],
+            },
+            [],
+        )
+    assert "1 person" in narrative
+    assert "2 packages" in narrative
+    assert manager.capabilities["local_narration"] is True
 
-    @patch('app.core.rag_engine.AsyncQdrantClient')
-    @patch('app.core.rag_engine.genai.Client')
-    @patch.dict(os.environ, {"QDRANT_URL": "http://localhost:6333", "GEMINI_API_KEY": "fake-key"}, clear=True)
-    async def test_missing_qdrant_api_key(self, mock_genai_client, mock_qdrant_client):
-        # Setup mock for get_collections to simulate no collections existing
-        mock_qdrant_instance = AsyncMock()
-        mock_qdrant_client.return_value = mock_qdrant_instance
 
-        mock_collections_response = MagicMock()
-        mock_collections_response.collections = []
-        mock_qdrant_instance.get_collections.return_value = mock_collections_response
+@pytest.mark.asyncio
+async def test_strict_mode_requires_external_services():
+    manager = RAGManager(make_settings(rag_strict=True))
+    with pytest.raises(RuntimeError, match="RAG_STRICT"):
+        async with manager:
+            pass
 
-        manager = RAGManager()
-        async with manager as m:
-            self.assertIsNotNone(m.qdrant_client)
-            self.assertIsNotNone(m.genai_client)
-            mock_qdrant_client.assert_called_with(url="http://localhost:6333", api_key=None)
 
-    @patch.dict(os.environ, clear=True)
-    async def test_missing_qdrant_url(self):
-        manager = RAGManager()
-        with self.assertRaises(ValueError) as context:
-            async with manager:
-                pass
-        self.assertIn("QDRANT_URL environment variable is missing", str(context.exception))
+@pytest.mark.asyncio
+async def test_gemini_synthesis_and_fallback():
+    manager = RAGManager(make_settings(gemini_api_key="key"))
+    client = MagicMock()
+    client.aio.models.generate_content = AsyncMock(
+        return_value=SimpleNamespace(text="A grounded narrative.")
+    )
+    with patch("app.core.rag_engine.genai.Client", return_value=client):
+        async with manager:
+            result = await manager.synthesize_context(
+                {"objects": [{"label": "laptop"}], "faces": []},
+                [],
+            )
+    assert result == "A grounded narrative."
+    client.aio.models.generate_content.assert_awaited_once()
 
-    @patch.dict(os.environ, {"QDRANT_URL": "http://localhost:6333"}, clear=True)
-    async def test_missing_gemini_api_key(self):
-        manager = RAGManager()
-        with self.assertRaises(ValueError) as context:
-            async with manager:
-                pass
-        self.assertIn("GEMINI_API_KEY environment variable is missing", str(context.exception))
 
-if __name__ == '__main__':
-
-    unittest.main()
+@pytest.mark.asyncio
+async def test_vector_dimension_is_validated():
+    qdrant = AsyncMock()
+    manager = RAGManager(make_settings())
+    manager.qdrant_client = qdrant
+    with pytest.raises(ValueError, match="512-dimensional"):
+        await manager.index_entity([0.1] * 12, {})

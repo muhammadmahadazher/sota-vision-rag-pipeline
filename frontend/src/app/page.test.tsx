@@ -14,7 +14,7 @@ vi.mock('@/components/NarrationPanel', () => ({
 describe('Home Page', () => {
   it('renders the header title', () => {
     render(<Home />);
-    const title = screen.getByText(/AETHER VISION RAG/i);
+    const title = screen.getByRole('link', { name: /Aether Vision home/i });
     expect(title).toBeInTheDocument();
   });
 

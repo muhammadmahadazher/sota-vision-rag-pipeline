@@ -1,106 +1,232 @@
-# 🌌 Aether Vision RAG
+# Aether Vision RAG
 
-[![Status: In The Making](https://img.shields.io/badge/Status-In_The_Making-orange?style=for-the-badge&logo=gitkraken)](https://github.com/muhammadmahadazher/sota-vision-rag-pipeline)
-[![Platform Support](https://img.shields.io/badge/Platform-Windows_|_Linux_|_macOS-blue?style=for-the-badge)](https://github.com/muhammadmahadazher/sota-vision-rag-pipeline)
-[![GPU Accelerated](https://img.shields.io/badge/Inference-GPU_CUDA-green?style=for-the-badge&logo=nvidia)](https://github.com/muhammadmahadazher/sota-vision-rag-pipeline)
+[![CI](https://github.com/muhammadmahadazher/sota-vision-rag-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/muhammadmahadazher/sota-vision-rag-pipeline/actions/workflows/ci.yml)
+[![GitHub Pages](https://img.shields.io/badge/live-demo-6ee7c7?style=flat&logo=github&logoColor=11151d)](https://muhammadmahadazher.github.io/sota-vision-rag-pipeline/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-72a7ff.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=white)](backend/requirements.txt)
 
-A state-of-the-art, ultra-low-latency Multimodal Vision Retrieval-Augmented Generation (RAG) platform. **Aether Vision RAG** fuses advanced real-time computer vision transformations with state-of-the-art Generative AI to continuously track, index, and synthesize complex contextual narratives from any video stream or native webcam feed.
+Aether Vision RAG is an open-source, local-first visual intelligence workspace. It turns webcam or video frames into structured detections, retrieves related visual moments from Qdrant, and produces concise scene narratives with Gemini or a built-in offline synthesizer.
 
----
+**[Open the interactive demo →](https://muhammadmahadazher.github.io/sota-vision-rag-pipeline/)**
 
-## 🎨 System Interface Mockup
+The hosted page uses clearly labelled sample scenes so it works without a GPU, server, camera permission, or API key. Switch to **Live backend** when running the local stack to analyze your own webcam or video files.
 
-Below is a preview design of Aether Vision RAG's space-black, high-contrast analytics dashboard:
+## Why it is useful
 
-![Aether Vision UI Mockup](./frontend/public/images/aether_vision_ui.jpg)
+- **Works immediately.** OpenCV lite mode provides real motion regions, face localization, 512-dimensional frame descriptors, vector recall, and local narratives without downloading a model.
+- **Scales to advanced vision.** YOLO-World v2 adds open-vocabulary Objects365 detection; InsightFace adds private face embeddings for temporal recall.
+- **Remembers scene context.** Qdrant retrieves similar frames instead of treating every image as an isolated event.
+- **Explains what changed.** Gemini synthesis is optional. When it is missing or rate-limited, a deterministic local narrator keeps the application useful.
+- **Treats the browser as a product.** The responsive dashboard includes webcam/video ingestion, confidence controls, overlay labels, text-to-speech, telemetry, memory search, and JSON export.
+- **Fails gracefully.** Vision, vector memory, and generative narration initialize independently and report their true state through the health API.
 
----
+## Architecture
 
-## 🏗️ System Architecture
+~~~mermaid
+flowchart LR
+    A["Webcam / video"] -->|"JPEG frames · bounded WebSocket"| B["FastAPI stream"]
+    B --> C{"Vision mode"}
+    C -->|"default"| D["OpenCV lite"]
+    C -->|"optional"| E["YOLO-World + InsightFace"]
+    D --> F["Detections + frame descriptor"]
+    E --> F
+    F --> G["Qdrant similarity recall"]
+    F --> H["Local narrator"]
+    G --> I{"Gemini configured?"}
+    I -->|"yes"| J["Grounded synthesis"]
+    I -->|"no"| H
+    H --> K["Next.js dashboard"]
+    J --> K
+~~~
 
-```
-                                    +------------------------------+
-                                    |      Webcam / MP4 Stream     |
-                                    +------------------------------+
-                                                   |
-                                                   | (5 FPS Binary Frames)
-                                                   v
-                                    +------------------------------+
-                                    |    Massive Vocabulary        |
-                                    |    Detector (Objects365)     |
-                                    +------------------------------+
-                                                   |
-                                                   | (Objects & Faces JSON)
-                                                   v
-                                    +------------------------------+
-                                    |    Multimodal GenAI          |
-                                    |    (Gemini 2.5 Flash API)    |
-                                    +------------------------------+
-                                                   |
-                                                   | (Context Narration)
-                                                   v
-                                    +------------------------------+
-                                    |    Local Vector Index        |
-                                    |    (Qdrant Port 6333)        |
-                                    +------------------------------+
-                                                   |
-                                                   | (Narratives / Matches)
-                                                   v
-                                    +------------------------------+
-                                    |    Luxury Dashboard          |
-                                    |    (Apple x Google UI)       |
-                                    +------------------------------+
-```
+## Quick start
 
----
+### Option A — full stack with Docker
 
-## 💎 Core Capabilities & Design Philosophy
+Requires Docker Desktop or Docker Engine with Compose.
 
-### ⚡ Objects365 Massive Vocabulary Engine
-By moving beyond the standard 80-category COCO limitations, the processing pipeline integrates **YOLO-World v2** pre-trained on the expansive **Objects365** dataset. This extends tracking capabilities across 365+ dense class categories (including everyday apparel items, complex tools, specific electronics, and structural layouts) with native GPU hardware acceleration.
+~~~bash
+git clone https://github.com/muhammadmahadazher/sota-vision-rag-pipeline.git
+cd sota-vision-rag-pipeline
+docker compose up --build
+~~~
 
-### 🔌 Asynchronous WebSockets Loop
-Frames are captured client-side and streamed binary-encoded over an IPv4 loopback socket (`ws://127.0.0.1:8000/api/stream`) at **5 FPS**. Bounding box matrices and facial embeddings are drew on a high-speed canvas layer overlay with negligible browser latency.
+Open:
 
-### 🛡️ Resilient Fail-Safe Ingestion
-Both frontend and backend are equipped with predictive try-catch blocks. If a webcam disconnects, a video stream interrupts, or frames corrupt, the ASGI engine broadcasts a `"status": "Stream Disconnected"` token. The dashboard idles cleanly and displays a premium red warning screen rather than crashing.
+- Dashboard: http://127.0.0.1:3000
+- API documentation: http://127.0.0.1:8000/docs
+- Qdrant console: http://127.0.0.1:6333/dashboard
 
-### 🍏 Google Spatial Layout × Apple Minimalist Canvas
-The interface combines the structural spacing rules of **Design.Google** with the dark physical layering of **Apple.com**:
-* **Space-Black Canvas:** Pure `#000000` base with `#1C1C1E` deep slate surfaces.
-* **Refraction Overlays:** High-density frosted glass bento panels with `backdrop-blur-3xl` and fractional-opacity borders (`border-white/[0.04]`).
-* **Organic Kinetics:** custom cubic-bezier transitions (`ease: [0.16, 1, 0.3, 1]`) powered by Framer Motion.
+The Compose image deliberately uses reliable lite vision. Set **GEMINI_API_KEY** in your shell before starting Compose if you want Gemini narration; it is not required.
 
----
+### Option B — native development
 
-## ⚙️ Turnkey Quick Start (Local Distribution)
+Requires Python 3.12+ and Node.js 20+.
 
-This project features isolated scripts for automatic provisioning and single-click concurrent startup.
+Windows:
 
-### 1. System Setup
-Verify host dependencies (Python 3.12+ and Node.js), create a virtual environment (`.venv`), install pip packages, download the native standalone Qdrant binary from GitHub, and install frontend npm modules:
-```powershell
-# Windows
-.\setup.bat
+~~~powershell
+setup.bat
+run.bat
+~~~
 
-# Unix / macOS / Linux
+Linux or macOS:
+
+~~~bash
+chmod +x setup.sh run.sh
 ./setup.sh
-```
-
-### 2. Launch Stack Concurrently
-Launches the local standalone Qdrant server, FastAPI backend, and Next.js development server. If missing, the wrapper will prompt you *only once* in the console to save your `GEMINI_API_KEY`:
-```powershell
-# Windows
-.\run.bat
-
-# Unix / macOS / Linux
 ./run.sh
-```
+~~~
 
-* **Web UI Dashboard:** `http://127.0.0.1:3000`
-* **ASGI Backend Service:** `http://127.0.0.1:8000`
-* **Qdrant Vector Database:** `http://127.0.0.1:6333`
+Native mode runs the frontend and backend. Vector memory is optional; start Qdrant separately or point **QDRANT_URL** at an existing instance.
 
----
+### Advanced vision mode
 
-*Status: 🚧 Project in Active Development / Beta. Core pipelines are verified running locally on NVIDIA RTX hardware layouts.*
+Advanced mode can download several gigabytes of model/runtime data and is best on a CUDA-capable machine.
+
+Windows:
+
+~~~powershell
+setup.bat advanced
+Copy-Item backend\.env.example backend\.env
+# Edit backend\.env and set VISION_MODE=advanced
+run.bat
+~~~
+
+Linux or macOS:
+
+~~~bash
+./setup.sh --advanced
+cp backend/.env.example backend/.env
+# Edit backend/.env and set VISION_MODE=advanced
+./run.sh
+~~~
+
+Install the GPU build of ONNX Runtime for your CUDA version if you want InsightFace GPU execution. The pipeline falls back to CPU providers where possible.
+
+## Configuration
+
+Copy **backend/.env.example** to **backend/.env**. All external services are optional unless **RAG_STRICT=true**.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| VISION_MODE | lite | lite, advanced, or auto |
+| VISION_MODEL | yolov8s-worldv2.pt | Ultralytics model used in advanced mode |
+| QDRANT_URL | http://127.0.0.1:6333 | Vector database endpoint; blank disables vector memory |
+| QDRANT_API_KEY | blank | Optional Qdrant Cloud key |
+| GEMINI_API_KEY | blank | Enables Gemini narration |
+| GEMINI_MODEL | gemini-2.5-flash | Generative model name |
+| API_TOKEN | blank | Optional WebSocket token; leave blank only for trusted local use |
+| ALLOWED_ORIGINS | localhost ports | Comma-separated HTTP/WebSocket origins |
+| RAG_STRICT | false | Fail startup when Qdrant or Gemini is unavailable |
+| SYNTHESIS_INTERVAL_SECONDS | 4 | Minimum narrative synthesis interval |
+| MAX_PAYLOAD_BYTES | 5242880 | Maximum incoming JPEG frame size |
+
+The frontend keeps a user-entered API token only in tab memory. It is never committed, persisted, or included in the static GitHub Pages bundle.
+
+## Runtime modes
+
+| Capability | Hosted demo | Lite backend | Advanced backend |
+| --- | ---: | ---: | ---: |
+| Interactive dashboard | ✓ | ✓ | ✓ |
+| Webcam / video ingestion | — | ✓ | ✓ |
+| Motion-region detection | sample | ✓ | — |
+| Face localization | sample | ✓ | ✓ |
+| Objects365 recognition | sample | — | ✓ |
+| Qdrant temporal recall | sample | ✓ | ✓ |
+| Local narration fallback | sample | ✓ | ✓ |
+| Gemini narration | sample | optional | optional |
+| GPU acceleration | — | — | optional |
+
+“Sample” means a transparent, deterministic product walkthrough—not simulated analysis of user-provided media.
+
+## WebSocket API
+
+Connect to **/api/stream**, optionally with a token:
+
+~~~text
+ws://127.0.0.1:8000/api/stream?token=YOUR_TOKEN
+~~~
+
+Send JPEG-encoded binary frames. The API returns:
+
+~~~json
+{
+  "objects": [
+    {
+      "bbox": [118.0, 96.0, 350.0, 578.0],
+      "label": "person",
+      "confidence": 0.97
+    }
+  ],
+  "faces": [
+    {
+      "bbox": [176.0, 104.0, 286.0, 232.0],
+      "confidence": 0.91
+    }
+  ],
+  "narrative": "A person is present near the central desk.",
+  "status": "Connected",
+  "qdrant_latency_ms": 18.4,
+  "device": "cpu-lite",
+  "backend": "OpenCV lite"
+}
+~~~
+
+Face embeddings and landmarks are never returned to the browser. Demographic estimates are excluded from the public payload and hosted demo.
+
+Health and readiness information is available at **GET /health**.
+
+## Development and verification
+
+Frontend:
+
+~~~bash
+cd frontend
+npm ci
+npm run typecheck
+npm run lint
+npm run test:run
+npm run build
+~~~
+
+Backend:
+
+~~~bash
+python -m pip install -r backend/requirements-dev.txt
+cd backend
+python -m compileall -q .
+python -m pytest -q
+~~~
+
+CI runs all of the above on every pull request. The Pages workflow exports the Next.js app as static files and publishes it with the repository base path.
+
+## Project layout
+
+~~~text
+.
+├── .github/workflows/        CI and GitHub Pages deployment
+├── backend/
+│   ├── app/api/stream.py     bounded WebSocket ingestion
+│   ├── app/core/config.py    typed environment settings
+│   ├── app/core/inference.py lite and advanced vision modes
+│   ├── app/core/rag_engine.py
+│   └── main.py               FastAPI lifecycle and health API
+├── frontend/
+│   ├── src/app/              product page and design system
+│   ├── src/components/       stream, overlay, and memory UI
+│   └── src/lib/vision.ts     shared client data model and demo scenarios
+└── docker-compose.yml
+~~~
+
+## Privacy and responsible use
+
+This project processes camera imagery and can create persistent vector representations. Obtain consent, define retention limits, secure Qdrant, and comply with applicable biometric/privacy law before using it outside a controlled experiment.
+
+Aether avoids identity claims, does not expose face embeddings to the browser, omits demographic estimates from public payloads, bounds incoming frame size, applies WebSocket origin checks, and supports constant-time token validation. These safeguards are a baseline, not a substitute for a deployment-specific threat model.
+
+## Contributing
+
+Issues and focused pull requests are welcome. Please include tests for behavior changes and keep the hosted demo functional without secrets or external services.
+
+Released under the [MIT License](LICENSE).

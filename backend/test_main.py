@@ -1,83 +1,99 @@
 import os
-import unittest
-from unittest.mock import patch, AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
-# Set required environment variables for tests
-os.environ["QDRANT_URL"] = "http://localhost:6333"
-os.environ["GEMINI_API_KEY"] = "fake-key"
-
+import httpx
+import pytest
 from fastapi import FastAPI
-from main import lifespan
 
-class TestLifespan(unittest.IsolatedAsyncioTestCase):
-    @patch('main.RAGManager')
-    async def test_lifespan_success(self, mock_rag_manager_class):
-        # Setup mock for RAGManager's async context manager
-        mock_rag_manager_instance = AsyncMock()
-        mock_rag_manager_class.return_value = mock_rag_manager_instance
+os.environ.setdefault("VISION_MODE", "lite")
+os.environ.pop("API_TOKEN", None)
+os.environ.pop("GEMINI_API_KEY", None)
+os.environ.pop("QDRANT_URL", None)
 
-        # When `async with RAGManager() as rag_manager:` is called,
-        # it calls __aenter__ and __aexit__
-        mock_rag_manager_instance.__aenter__.return_value = mock_rag_manager_instance
-
-        app = FastAPI()
-
-        # We need a mock to capture yielding
-        async with lifespan(app):
-            # The body of the async with block
-            self.assertEqual(app.state.rag_engine, mock_rag_manager_instance)
-
-        # Verify it was called correctly
-        mock_rag_manager_instance.__aenter__.assert_called_once()
-        mock_rag_manager_instance.__aexit__.assert_called_once()
-
-    @patch('main.RAGManager')
-    async def test_lifespan_exception(self, mock_rag_manager_class):
-        # Setup mock for RAGManager's async context manager to raise an exception
-        mock_rag_manager_instance = AsyncMock()
-        mock_rag_manager_class.return_value = mock_rag_manager_instance
-
-        # Make __aenter__ raise an exception
-        mock_rag_manager_instance.__aenter__.side_effect = Exception("Initialization failed")
-
-        app = FastAPI()
-
-        async with lifespan(app):
-            # The body of the async with block
-            # In case of exception, it yields and sets app.state.rag_engine = None
-            self.assertIsNone(app.state.rag_engine)
-
-        # Verify __aenter__ was called and raised the exception
-        mock_rag_manager_instance.__aenter__.assert_called_once()
-        # __aexit__ shouldn't be called if __aenter__ raised an exception
-        mock_rag_manager_instance.__aexit__.assert_not_called()
+from main import app, lifespan
 
 
-from fastapi.testclient import TestClient
-from main import app
+@pytest.mark.asyncio
+async def test_lifespan_initializes_services_independently():
+    test_app = FastAPI()
+    rag = AsyncMock()
+    rag.__aenter__.return_value = rag
+    vision = MagicMock(device="cpu-lite", backend_name="OpenCV lite")
 
-class TestCORS(unittest.TestCase):
-    def setUp(self):
-        self.client = TestClient(app)
+    with patch("main.RAGManager", return_value=rag), patch(
+        "main.VisionPipeline",
+        return_value=vision,
+    ):
+        async with lifespan(test_app):
+            assert test_app.state.rag_engine is rag
+            assert test_app.state.vision_pipeline is vision
+            assert test_app.state.startup_errors == []
 
-    def test_cors_preflight_allowed(self):
-        headers = {
-            "Origin": "http://localhost:3000",
-            "Access-Control-Request-Method": "GET",
-            "Access-Control-Request-Headers": "Authorization"
+    rag.__aexit__.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_lifespan_keeps_vision_when_rag_fails():
+    test_app = FastAPI()
+    rag = AsyncMock()
+    rag.__aenter__.side_effect = RuntimeError("database unavailable")
+    vision = MagicMock(device="cpu-lite", backend_name="OpenCV lite")
+
+    with patch("main.RAGManager", return_value=rag), patch(
+        "main.VisionPipeline",
+        return_value=vision,
+    ):
+        async with lifespan(test_app):
+            assert test_app.state.rag_engine is None
+            assert test_app.state.vision_pipeline is vision
+            assert "RAG initialization failed" in test_app.state.startup_errors[0]
+
+
+@pytest.mark.asyncio
+async def test_cors_preflight_policy():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        allowed = await client.options(
+            "/health",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "Authorization",
+            },
+        )
+        denied = await client.options(
+            "/health",
+            headers={
+                "Origin": "http://evil.example",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+    assert allowed.status_code == 200
+    assert allowed.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert denied.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_health_reports_component_state():
+    app.state.vision_pipeline = SimpleNamespace(
+        backend_name="OpenCV lite",
+        device="cpu-lite",
+        fallback_reason=None,
+    )
+    app.state.rag_engine = SimpleNamespace(
+        capabilities={
+            "vector_memory": False,
+            "generative_narration": False,
+            "local_narration": True,
         }
-        response = self.client.options("/health", headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://localhost:3000")
-
-    def test_cors_preflight_disallowed(self):
-        headers = {
-            "Origin": "http://evil.com",
-            "Access-Control-Request-Method": "GET",
-            "Access-Control-Request-Headers": "Authorization"
-        }
-        response = self.client.options("/health", headers=headers)
-        self.assertEqual(response.status_code, 400)
-
-if __name__ == '__main__':
-    unittest.main()
+    )
+    app.state.startup_errors = []
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["vision"]["mode"] == "OpenCV lite"
+    assert body["rag"]["local_narration"] is True
