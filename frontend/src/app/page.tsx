@@ -50,7 +50,7 @@ export default function Home() {
           </p>
         </div>
         <div className="hero-proof" aria-label="Platform highlights">
-          <div><strong>365+</strong><span>object classes</span></div>
+          <div><strong>80</strong><span>on-device classes</span></div>
           <div><strong>5 FPS</strong><span>adaptive stream</span></div>
           <div><strong>Local</strong><span>vector memory</span></div>
         </div>
@@ -84,15 +84,15 @@ export default function Home() {
       <section className="capability-strip" aria-label="Core capabilities">
         <article>
           <span><Layers3 size={19} /></span>
-          <div><strong>Open-vocabulary detection</strong><p>YOLO-World recognizes a broader scene vocabulary than fixed COCO-only pipelines.</p></div>
+          <div><strong>Two inference paths</strong><p>Run a compact detector in this browser or connect the advanced YOLO-World backend.</p></div>
         </article>
         <article>
           <span><History size={19} /></span>
-          <div><strong>Persistent visual memory</strong><p>Qdrant retrieves related moments so the narrative reflects what happened before.</p></div>
+          <div><strong>Useful temporal memory</strong><p>Search the current browser session, with persistent Qdrant recall available when self-hosted.</p></div>
         </article>
         <article>
           <span><BrainCircuit size={19} /></span>
-          <div><strong>Grounded synthesis</strong><p>Gemini turns structured detections and recalled context into concise observations.</p></div>
+          <div><strong>Grounded synthesis</strong><p>Get private local summaries immediately, or enable Gemini narration on your own backend.</p></div>
         </article>
       </section>
 

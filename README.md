@@ -5,38 +5,41 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-72a7ff.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=white)](backend/requirements.txt)
 
-Aether Vision RAG is an open-source, local-first visual intelligence workspace. It turns webcam or video frames into structured detections, retrieves related visual moments from Qdrant, and produces concise scene narratives with Gemini or a built-in offline synthesizer.
+Aether Vision RAG is an open-source, privacy-first visual intelligence workspace. The hosted app analyzes webcam or uploaded video frames directly in the browser, while the optional self-hosted stack adds OpenCV or YOLO-World inference, Qdrant recall, and Gemini narration.
 
 **[Open the interactive demo →](https://muhammadmahadazher.github.io/sota-vision-rag-pipeline/)**
 
-The hosted page uses clearly labelled sample scenes so it works without a GPU, server, camera permission, or API key. Switch to **Live backend** when running the local stack to analyze your own webcam or video files.
+The hosted page includes both transparent sample scenes and real on-device object detection. Choose **On-device**, upload a video or allow the camera, and wait for the compact pinned model to download once; it is cached by the browser and frames never leave the device.
 
 ## Why it is useful
 
-- **Works immediately.** OpenCV lite mode provides real motion regions, face localization, 512-dimensional frame descriptors, vector recall, and local narratives without downloading a model.
+- **Works on GitHub Pages.** A pinned YOLOS-tiny model runs in a background browser worker for real 80-class object detection, overlays, summaries, and session memory with no backend or API key.
 - **Scales to advanced vision.** YOLO-World v2 adds open-vocabulary Objects365 detection; InsightFace adds private face embeddings for temporal recall.
 - **Remembers scene context.** Qdrant retrieves similar frames instead of treating every image as an isolated event.
 - **Explains what changed.** Gemini synthesis is optional. When it is missing or rate-limited, a deterministic local narrator keeps the application useful.
-- **Treats the browser as a product.** The responsive dashboard includes webcam/video ingestion, confidence controls, overlay labels, text-to-speech, telemetry, memory search, and JSON export.
+- **Treats the browser as a product.** The responsive dashboard includes real webcam/video ingestion, model progress, confidence controls, overlay labels, text-to-speech, telemetry, searchable session memory, and JSON export.
 - **Fails gracefully.** Vision, vector memory, and generative narration initialize independently and report their true state through the health API.
 
 ## Architecture
 
 ~~~mermaid
 flowchart LR
-    A["Webcam / video"] -->|"JPEG frames · bounded WebSocket"| B["FastAPI stream"]
-    B --> C{"Vision mode"}
-    C -->|"default"| D["OpenCV lite"]
-    C -->|"optional"| E["YOLO-World + InsightFace"]
-    D --> F["Detections + frame descriptor"]
-    E --> F
-    F --> G["Qdrant similarity recall"]
-    F --> H["Local narrator"]
-    G --> I{"Gemini configured?"}
-    I -->|"yes"| J["Grounded synthesis"]
-    I -->|"no"| H
-    H --> K["Next.js dashboard"]
+    A["Webcam / video"] --> B{"Execution mode"}
+    B -->|"On-device"| C["Background browser worker"]
+    C --> D["Pinned YOLOS-tiny detector"]
+    D --> E["Local scene summary"]
+    E --> F["Searchable session memory"]
+    B -->|"Self-hosted"| G["Bounded FastAPI WebSocket"]
+    G --> H{"Vision mode"}
+    H -->|"default"| I["OpenCV lite"]
+    H -->|"optional"| J["YOLO-World + InsightFace"]
+    I --> K["Detections + frame descriptor"]
     J --> K
+    K --> L["Qdrant similarity recall"]
+    K --> M["Local narrator"]
+    L --> N{"Gemini configured?"}
+    N -->|"yes"| O["Grounded synthesis"]
+    N -->|"no"| M
 ~~~
 
 ## Quick start
@@ -126,20 +129,20 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 
 ## Runtime modes
 
-| Capability | Hosted demo | Lite backend | Advanced backend |
+| Capability | Hosted on-device | Lite backend | Advanced backend |
 | --- | ---: | ---: | ---: |
 | Interactive dashboard | ✓ | ✓ | ✓ |
-| Webcam / video ingestion | — | ✓ | ✓ |
-| Motion-region detection | sample | ✓ | — |
-| Face localization | sample | ✓ | ✓ |
-| Objects365 recognition | sample | — | ✓ |
-| Qdrant temporal recall | sample | ✓ | ✓ |
-| Local narration fallback | sample | ✓ | ✓ |
-| Gemini narration | sample | optional | optional |
+| Webcam / video ingestion | ✓ | ✓ | ✓ |
+| 80-class object detection | ✓ | — | — |
+| Motion-region detection | — | ✓ | — |
+| Face localization | — | ✓ | ✓ |
+| Objects365 recognition | — | — | ✓ |
+| Searchable memory | session | Qdrant | Qdrant |
+| Local narration | ✓ | ✓ | ✓ |
+| Gemini narration | — | optional | optional |
 | GPU acceleration | — | — | optional |
 
-“Sample” means a transparent, deterministic product walkthrough—not simulated analysis of user-provided media.
-
+The first on-device run downloads the quantized model and ONNX browser runtime from version-pinned sources. Model files are cached locally. Uploaded frames are processed inside the worker and are not sent to the repository owner or any API.
 ## WebSocket API
 
 Connect to **/api/stream**, optionally with a token:

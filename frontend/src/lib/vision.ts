@@ -1,7 +1,8 @@
-export type VisionMode = "demo" | "live";
+export type VisionMode = "browser" | "backend";
 
 export type ConnectionState =
   | "demo"
+  | "loading"
   | "connecting"
   | "connected"
   | "offline"
