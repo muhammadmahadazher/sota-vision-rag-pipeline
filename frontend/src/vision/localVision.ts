@@ -23,6 +23,7 @@ interface RuntimeMetadata {
   vendor: string;
   accelerator: "webgpu" | "wasm" | "native";
   fallbackReason: string | null;
+  modelState: "loading" | "ready" | "fallback";
 }
 
 export type LocalVisionWorkerEvent =

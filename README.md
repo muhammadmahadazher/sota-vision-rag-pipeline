@@ -15,7 +15,7 @@ For local CPU/GPU installation, diagnostics, and real-video testing, see **[Loca
 
 ## Why it is useful
 
-- **Works on GitHub Pages.** A dependency-free browser vision engine starts immediately, while a pinned YOLOS-tiny model upgrades the worker to 80-class object detection when available—no backend or API key required.
+- **Works on GitHub Pages.** A dependency-free browser vision engine starts immediately, while a self-hosted, pinned YOLOS-tiny model upgrades the worker to 80-class object detection—no backend, API key, runtime CDN, or model-host request required.
 - **Scales to advanced vision.** YOLO-World v2 adds open-vocabulary Objects365 detection; InsightFace adds private face embeddings for temporal recall.
 - **Remembers scene context.** Qdrant retrieves similar frames instead of treating every image as an isolated event.
 - **Explains what changed.** Gemini synthesis is optional. When it is missing or rate-limited, a deterministic local narrator keeps the application useful.
@@ -70,12 +70,13 @@ The Compose image deliberately uses reliable lite vision. Set **GEMINI_API_KEY**
 
 Requires Python 3.12+ and Node.js 20+.
 
-Windows:
+Windows (one command; missing dependencies are installed automatically):
 
 ~~~powershell
-.\setup.bat
 .\run.bat
 ~~~
+
+To install without launching, run `.\setup.bat`. Keep the `run.bat` window open while using the app; press `Ctrl+C` there to stop both services.
 
 Linux or macOS:
 
@@ -85,7 +86,7 @@ chmod +x setup.sh run.sh
 ./run.sh
 ~~~
 
-The first setup can take a few minutes; unchanged repeat runs are skipped. The Windows launcher waits for both services and opens the dashboard only after it is ready. Native mode runs the frontend and backend. Vector memory is optional; start Qdrant separately or point **QDRANT_URL** at an existing instance.
+The first setup can take a few minutes; unchanged repeat runs are skipped. The Windows launcher installs anything missing, waits for both services, prints the exact URLs, and opens the dashboard only after it is ready. Native mode runs the frontend and backend. Vector memory is optional; start Qdrant separately or point **QDRANT_URL** at an existing instance.
 
 ### Advanced vision mode
 
@@ -146,7 +147,7 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 | Gemini narration | — | optional | optional |
 | GPU acceleration | NVIDIA/AMD WebGPU | — | NVIDIA CUDA / AMD ROCm |
 
-The on-device worker starts with dependency-free CPU motion analysis, requests a high-performance WebGPU adapter, accepts recognized NVIDIA/AMD hardware, and retries the optional object model on quantized CPU/WASM if GPU initialization or inference fails. A blocked CDN or model host no longer stops analysis. Model files are version-pinned and cached locally. Uploaded frames are never sent to the repository owner or an API.
+The on-device worker starts with dependency-free CPU motion analysis, requests a high-performance WebGPU adapter, accepts recognized NVIDIA/AMD hardware, and retries the bundled object model on quantized CPU/WASM if GPU initialization or inference fails. Runtime, WebAssembly, and model files are version-pinned and served by the same GitHub Pages deployment. Uploaded frames are never sent to the repository owner or an API.
 
 ## WebSocket API
 

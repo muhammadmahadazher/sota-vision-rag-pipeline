@@ -28,7 +28,7 @@ class FakeWorker {
         data: { type: "progress", status: "progress", file: "model.onnx", progress: 72 },
       } as MessageEvent);
       this.onmessage?.({
-        data: { type: "ready", runtime: "CPU · WASM", vendor: "CPU", accelerator: "wasm", fallbackReason: null },
+        data: { type: "ready", runtime: "CPU · WASM", vendor: "CPU", accelerator: "wasm", fallbackReason: null, modelState: "ready" },
       } as MessageEvent);
       this.onmessage?.({
         data: {

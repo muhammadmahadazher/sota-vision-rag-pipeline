@@ -69,6 +69,8 @@ export const StreamController = React.memo(function StreamController({
   const [apiToken, setApiToken] = useState("");
   const [modelProgress, setModelProgress] = useState<number | null>(null);
   const [modelStatus, setModelStatus] = useState("On-device model ready to load");
+  const [modelDetail, setModelDetail] = useState("The detector is bundled with this app and stays on this device.");
+  const [modelState, setModelState] = useState<"idle" | "loading" | "ready" | "fallback">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
   const publishPacket = useCallback((nextPacket: AnalysisPacket) => {
@@ -144,22 +146,30 @@ export const StreamController = React.memo(function StreamController({
   const handleWorkerEvent = useCallback((message: LocalVisionWorkerEvent) => {
     if (message.type === "progress") {
       setModelProgress(message.progress);
+      setModelState("loading");
       setModelStatus(message.status === "hardware"
         ? "Checking for NVIDIA, AMD, or CPU acceleration"
         : message.progress === null
           ? "Upgrading the built-in analyzer"
-          : `Loading optional object model · ${message.progress}%`);
+          : `Loading 80-class object model · ${message.progress}%`);
+      setModelDetail(message.file || "Preparing the private object detector");
       return;
     }
     if (message.type === "runtime") {
-      setModelStatus(message.fallbackReason
-        ? `${message.runtime} fallback active`
-        : `${message.runtime} selected`);
+      setModelState(message.modelState);
+      setModelStatus(message.modelState === "loading"
+        ? `${message.runtime} warming up`
+        : message.fallbackReason
+          ? `${message.runtime} fallback active`
+          : `${message.runtime} selected`);
+      setModelDetail(message.fallbackReason ?? "The 80-class object detector is initializing.");
       return;
     }
     if (message.type === "ready") {
       setModelProgress(100);
-      setModelStatus(`${message.runtime} ready`);
+      setModelState(message.modelState);
+      setModelStatus(message.modelState === "fallback" ? `${message.runtime} fallback active` : `${message.runtime} ready`);
+      setModelDetail(message.fallbackReason ?? "80-class object detection is active and processing locally.");
       if (modeRef.current === "browser" && streamingRef.current) setConnectionState("connected");
       return;
     }
@@ -215,7 +225,9 @@ export const StreamController = React.memo(function StreamController({
     workerRef.current = worker;
     localFailedRef.current = false;
     setModelProgress(0);
+    setModelState("loading");
     setModelStatus("Preparing the on-device model");
+    setModelDetail("Loading the bundled detector runtime and pinned model.");
     return worker;
   }, [clearFrameLoop, handleWorkerEvent]);
 
@@ -522,11 +534,13 @@ export const StreamController = React.memo(function StreamController({
             onUpload={() => fileInputRef.current?.click()}
           />
         )}
-        {mode === "browser" && isStreaming && connectionState === "loading" && (
-          <div className="model-loading-card" role="status" aria-live="polite">
-            <LoaderCircle size={18} className="loading-spinner" />
-            <div><strong>{modelStatus}</strong><span>Built-in analysis starts first; GPU → WASM → CPU fallback is automatic.</span></div>
-            {modelProgress !== null && <progress max="100" value={modelProgress} aria-label="Model download progress" />}
+        {mode === "browser" && isStreaming && modelState !== "ready" && modelState !== "idle" && (
+          <div className={`model-loading-card ${modelState === "fallback" ? "is-warning" : ""}`} role="status" aria-live="polite">
+            {modelState === "fallback"
+              ? <Info size={18} />
+              : <LoaderCircle size={18} className="loading-spinner" />}
+            <div><strong>{modelStatus}</strong><span>{modelDetail}</span></div>
+            {modelState === "loading" && modelProgress !== null && <progress max="100" value={modelProgress} aria-label="Model loading progress" />}
           </div>
         )}
         {isStreaming && (
@@ -616,7 +630,7 @@ export const StreamController = React.memo(function StreamController({
             ) : (
               <div className="connection-fields">
                 <div><p className="section-kicker">On-device engine</p><h4>Private browser inference</h4></div>
-                <p className="local-engine-copy">The worker selects a high-performance NVIDIA or AMD WebGPU adapter when available, retries with quantized CPU/WASM, and always retains a dependency-free CPU motion analyzer. Model files are cached after a successful download.</p>
+                <p className="local-engine-copy">The worker selects a high-performance NVIDIA or AMD WebGPU adapter when available, retries with quantized CPU/WASM, and retains a dependency-free motion analyzer. The pinned runtime and model are served with the app—no runtime CDN is required.</p>
                 <p className="field-help"><ShieldCheck size={14} /> Video frames never leave this browser in On-device mode.</p>
                 <small className="model-revision">Model revision · {LOCAL_VISION_MODEL.revision.slice(0, 12)}</small>
               </div>

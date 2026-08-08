@@ -95,11 +95,10 @@ function Wait-ForEndpoint {
     throw "$Name did not become ready within $StartupTimeoutSeconds seconds."
 }
 
-if (-not (Test-Path -LiteralPath $pythonPath)) {
-    throw "Missing .venv. In PowerShell, run .\setup.bat first."
-}
-if (-not (Test-Path -LiteralPath (Join-Path $frontendPath "node_modules"))) {
-    throw "Missing frontend dependencies. In PowerShell, run .\setup.bat first."
+Write-Host "Checking local dependencies..." -ForegroundColor DarkCyan
+& (Join-Path $projectRoot "setup.ps1") -Profile standard
+if ($LASTEXITCODE -ne 0) {
+    throw "Automatic setup failed with exit code $LASTEXITCODE."
 }
 if (-not (Test-Path -LiteralPath $envPath)) {
     Copy-Item -LiteralPath $exampleEnvPath -Destination $envPath

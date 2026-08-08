@@ -1,7 +1,12 @@
 import { cpuRuntime, selectBrowserHardware } from "./local-hardware.js";
 import { analyzeMotionPixels } from "./native-vision.js";
 
-const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.web.min.js";
+const TRANSFORMERS_URL = new URL(
+  "./vendor/transformers/transformers.min.js",
+  import.meta.url,
+).href;
+const TRANSFORMERS_ASSET_URL = new URL("./vendor/transformers/", import.meta.url).href;
+const LOCAL_MODEL_URL = new URL("./models/", import.meta.url).href;
 const MODEL_ID = "Xenova/yolos-tiny";
 const MODEL_REVISION = "e2f9c7673f0fa61849efe2b56a0d7774779ebb9d";
 const NATIVE_MAX_EDGE = 192;
@@ -44,7 +49,7 @@ function publishProgress(info) {
   });
 }
 
-function publishRuntime(type = "runtime") {
+function publishRuntime(type = "runtime", modelState = "loading") {
   if (disposed || !runtimePlan) return;
   self.postMessage({
     type,
@@ -52,21 +57,27 @@ function publishRuntime(type = "runtime") {
     vendor: runtimePlan.vendor,
     accelerator: runtimePlan.device,
     fallbackReason: runtimePlan.fallbackReason,
+    modelState,
   });
 }
 
 function activateNative(reason, announceReady = true) {
   runtimePlan = nativeRuntime(reason);
-  publishRuntime();
-  if (announceReady) publishRuntime("ready");
+  publishRuntime("runtime", announceReady ? "fallback" : "loading");
+  if (announceReady) publishRuntime("ready", "fallback");
 }
 
 async function getTransformers() {
   if (!transformersPromise) {
     transformersPromise = import(TRANSFORMERS_URL).then((module) => {
-      module.env.allowLocalModels = false;
-      module.env.allowRemoteModels = true;
+      module.env.allowLocalModels = true;
+      module.env.allowRemoteModels = false;
+      module.env.localModelPath = LOCAL_MODEL_URL;
       module.env.useBrowserCache = true;
+      module.env.backends.onnx.wasm.wasmPaths = {
+        mjs: new URL("ort-wasm-simd-threaded.jsep.js", TRANSFORMERS_ASSET_URL).href,
+        wasm: new URL("ort-wasm-simd-threaded.jsep.wasm", TRANSFORMERS_ASSET_URL).href,
+      };
       return module;
     });
   }
@@ -110,13 +121,13 @@ function startModelUpgrade(forcedPlan = null) {
     }
     detector = loadedDetector;
     runtimePlan = selectedPlan;
-    publishRuntime();
-    publishRuntime("ready");
+    publishRuntime("runtime", "ready");
+    publishRuntime("ready", "ready");
     return loadedDetector;
   })().catch((error) => {
     if (!disposed) {
       activateNative(
-        `The optional object model is unavailable; dependency-free motion analysis remains active. ${errorDetail(error, "Model loading failed")}`,
+        `The 80-class object model is unavailable; dependency-free motion analysis remains active. ${errorDetail(error, "Model loading failed")}`,
       );
     }
     return null;
@@ -125,7 +136,7 @@ function startModelUpgrade(forcedPlan = null) {
 
 function ensureNativeReady() {
   if (!runtimePlan) {
-    activateNative("Built-in analysis is active while the optional 80-class model loads.");
+    activateNative("Built-in motion analysis is active while the 80-class object model initializes.", false);
   }
   startModelUpgrade();
 }

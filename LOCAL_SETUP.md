@@ -9,14 +9,13 @@
 
 ## Fastest Windows setup
 
-From the repository root:
+From the repository root, one command installs anything missing and starts both services:
 
 ```powershell
-.\setup.bat
 .\run.bat
 ```
 
-The first setup installs the pinned dependencies and can take a few minutes. Re-running `.\setup.bat` skips installation when the lockfiles are unchanged. `.\run.bat` waits for both services, then opens <http://127.0.0.1:3000> automatically. Use `.\run.bat -NoBrowser` to disable automatic opening. **On-device** analyzes frames in the browser; **Self-hosted** uses `ws://127.0.0.1:8000/api/stream`.
+The first run installs the pinned dependencies and can take a few minutes. Run `.\setup.bat` only when you want to install without launching. `.\run.bat` waits for both services, prints their URLs, then opens <http://127.0.0.1:3000> automatically. Keep that terminal open and press `Ctrl+C` to stop. Use `.\run.bat -NoBrowser` to disable automatic opening. **On-device** analyzes frames in the browser; **Self-hosted** uses `ws://127.0.0.1:8000/api/stream`.
 
 The standard profile uses the reliable CPU-lite backend. Browser inference still selects NVIDIA/AMD WebGPU automatically when Chrome or Edge exposes a supported high-performance adapter.
 

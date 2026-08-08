@@ -692,6 +692,15 @@ main { position: relative; isolation: isolate; }
   accent-color: var(--accent);
 }
 
+.model-loading-card.is-warning {
+  border-color: rgba(248, 113, 113, .34);
+  background: rgba(36, 13, 17, .92);
+}
+
+.model-loading-card.is-warning > svg {
+  color: #fda4af;
+}
+
 .loading-spinner {
   color: var(--orange);
   animation: spin 1s linear infinite;
