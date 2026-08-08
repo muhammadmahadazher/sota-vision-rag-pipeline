@@ -5,6 +5,11 @@ from typing import Any
 
 import cv2
 import numpy as np
+from app.core.hardware import (
+    cpu_hardware,
+    discover_system_accelerator,
+    select_torch_hardware,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +55,7 @@ class LiteVisionPipeline:
     def __init__(self) -> None:
         self.device = "cpu-lite"
         self.backend_name = "OpenCV lite"
+        self.hardware = cpu_hardware("Lite vision profile selected.")
         self._previous_gray: np.ndarray | None = None
         cascade_path = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
         self._face_cascade = cv2.CascadeClassifier(str(cascade_path))
@@ -121,30 +127,39 @@ class AdvancedVisionPipeline:
 
     def __init__(self, model_name: str) -> None:
         _load_advanced_dependencies()
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.hardware = select_torch_hardware(torch, discover_system_accelerator())
+        self.torch_device = self.hardware.torch_device
+        self.device = self.hardware.runtime
         self.backend_name = "YOLO-World + InsightFace"
 
         logger.info("Loading YOLO-World model %s on %s.", model_name, self.device)
         self.detector = YOLOWorld(model_name)
-        self.detector.to(self.device)
+        try:
+            self.detector.to(self.torch_device)
+        except Exception as exc:
+            if not self.hardware.accelerated:
+                raise
+            logger.warning("GPU model initialization failed; retrying on CPU: %s", exc)
+            self.hardware = cpu_hardware(f"GPU initialization failed: {exc}")
+            self.torch_device = self.hardware.torch_device
+            self.device = self.hardware.runtime
+            self.detector = YOLOWorld(model_name)
+            self.detector.to(self.torch_device)
 
         class_names = self._load_objects365_names()
         if class_names:
             self.detector.set_classes(class_names)
 
-        preferred_providers = (
-            ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            if self.device == "cuda"
-            else ["CPUExecutionProvider"]
-        )
+        gpu_provider = {"NVIDIA": "CUDAExecutionProvider", "AMD": "ROCMExecutionProvider"}.get(self.hardware.vendor)
+        preferred_providers = [gpu_provider, "CPUExecutionProvider"] if gpu_provider else ["CPUExecutionProvider"]
         try:
             self.face_analysis = FaceAnalysis(providers=preferred_providers)
             self.face_analysis.prepare(
-                ctx_id=0 if self.device == "cuda" else -1,
+                ctx_id=0 if gpu_provider else -1,
                 det_size=(640, 640),
             )
         except Exception as exc:
-            if self.device != "cuda":
+            if not gpu_provider:
                 raise
             logger.warning("InsightFace GPU initialization failed; using CPU: %s", exc)
             self.face_analysis = FaceAnalysis(providers=["CPUExecutionProvider"])
@@ -225,9 +240,9 @@ class VisionPipeline:
     """Selects a reliable local pipeline and exposes one stable processing API."""
 
     def __init__(self, model_name: str | None = None, mode: str | None = None) -> None:
-        requested_mode = (mode or os.getenv("VISION_MODE", "lite")).strip().lower()
+        requested_mode = (mode or os.getenv("VISION_MODE", "auto")).strip().lower()
         if requested_mode not in {"lite", "advanced", "auto"}:
-            requested_mode = "lite"
+            requested_mode = "auto"
         selected_model = model_name or os.getenv("VISION_MODEL", "yolov8s-worldv2.pt")
         self.requested_mode = requested_mode
         self.fallback_reason: str | None = None
@@ -243,9 +258,14 @@ class VisionPipeline:
                 self.fallback_reason = str(exc)
                 logger.warning("Advanced inference unavailable; using lite mode: %s", exc)
                 self.backend = LiteVisionPipeline()
+                self.backend.hardware = cpu_hardware(
+                    f"Advanced inference unavailable: {exc}",
+                    discover_system_accelerator(),
+                )
 
         self.device = self.backend.device
         self.backend_name = self.backend.backend_name
+        self.hardware = self.backend.hardware.as_health_payload()
         logger.info("Vision pipeline ready: %s on %s", self.backend_name, self.device)
 
     def process_frame(self, frame: np.ndarray) -> dict[str, Any]:

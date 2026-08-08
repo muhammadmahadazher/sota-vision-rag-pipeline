@@ -214,6 +214,9 @@ main { position: relative; isolation: isolate; }
   cursor: pointer;
 }
 .mode-switch button.is-active { background: var(--surface-2); color: var(--text); box-shadow: inset 0 1px rgba(255,255,255,0.06); }
+.mode-switch button:disabled { cursor: not-allowed; opacity: .55; }
+.mode-switch button small { display: block; margin-top: 1px; font-size: 7px; letter-spacing: .06em; text-transform: uppercase; }
+.mode-switch button:disabled:hover { background: transparent; }
 .icon-button {
   width: 34px;
   height: 34px;

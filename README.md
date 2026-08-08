@@ -9,7 +9,9 @@ Aether Vision RAG is an open-source, privacy-first visual intelligence workspace
 
 **[Open the interactive demo →](https://muhammadmahadazher.github.io/sota-vision-rag-pipeline/)**
 
-The hosted page includes both transparent sample scenes and real on-device object detection. Choose **On-device**, upload a video or allow the camera, and wait for the compact pinned model to download once; it is cached by the browser and frames never leave the device.
+The hosted page is locked to real **On-device** inference so an uploaded video can never be routed accidentally to an unavailable localhost API. Upload a video or allow the camera and wait for the pinned model to download once; it is cached by the browser and frames never leave the device.
+
+For local CPU/GPU installation, diagnostics, and real-video testing, see **[Local setup and hardware verification](LOCAL_SETUP.md)**.
 
 ## Why it is useful
 
@@ -43,6 +45,8 @@ flowchart LR
 ~~~
 
 ## Quick start
+
+The detailed platform-specific guide is in [LOCAL_SETUP.md](LOCAL_SETUP.md).
 
 ### Option A — full stack with Docker
 
@@ -85,7 +89,7 @@ Native mode runs the frontend and backend. Vector memory is optional; start Qdra
 
 ### Advanced vision mode
 
-Advanced mode can download several gigabytes of model/runtime data and is best on a CUDA-capable machine.
+Advanced mode can download several gigabytes. It automatically selects NVIDIA CUDA or AMD ROCm when the installed PyTorch build exposes one, and retries on CPU if GPU initialization fails.
 
 Windows:
 
@@ -105,7 +109,7 @@ cp backend/.env.example backend/.env
 ./run.sh
 ~~~
 
-Install the GPU build of ONNX Runtime for your CUDA version if you want InsightFace GPU execution. The pipeline falls back to CPU providers where possible.
+Use the official PyTorch install selector for the machine's CUDA or ROCm version. Run `python -m app.core.hardware` from `backend/` to inspect the selection; the API also reports it at `GET /health`.
 
 ## Configuration
 
@@ -113,7 +117,7 @@ Copy **backend/.env.example** to **backend/.env**. All external services are opt
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| VISION_MODE | lite | lite, advanced, or auto |
+| VISION_MODE | auto | Detect advanced CUDA/ROCm when installed; otherwise CPU lite |
 | VISION_MODEL | yolov8s-worldv2.pt | Ultralytics model used in advanced mode |
 | QDRANT_URL | http://127.0.0.1:6333 | Vector database endpoint; blank disables vector memory |
 | QDRANT_API_KEY | blank | Optional Qdrant Cloud key |
@@ -140,9 +144,10 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 | Searchable memory | session | Qdrant | Qdrant |
 | Local narration | ✓ | ✓ | ✓ |
 | Gemini narration | — | optional | optional |
-| GPU acceleration | — | — | optional |
+| GPU acceleration | NVIDIA/AMD WebGPU | — | NVIDIA CUDA / AMD ROCm |
 
-The first on-device run downloads the quantized model and ONNX browser runtime from version-pinned sources. Model files are cached locally. Uploaded frames are processed inside the worker and are not sent to the repository owner or any API.
+The on-device worker requests a high-performance WebGPU adapter, accepts recognized NVIDIA/AMD hardware, and automatically rebuilds the pipeline on quantized CPU/WASM if detection, model loading, or inference fails. Model files are version-pinned and cached locally. Uploaded frames are never sent to the repository owner or an API.
+
 ## WebSocket API
 
 Connect to **/api/stream**, optionally with a token:
