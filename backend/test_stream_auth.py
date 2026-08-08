@@ -1,38 +1,80 @@
-import os
-import unittest
-from fastapi.testclient import TestClient
-from fastapi.websockets import WebSocketDisconnect
-from starlette.websockets import WebSocketState
+from dataclasses import replace
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
-# Set required environment variables
-os.environ["QDRANT_URL"] = "http://localhost:6333"
-os.environ["GEMINI_API_KEY"] = "fake-key"
-os.environ["API_TOKEN"] = "test-secret"
+import pytest
+from fastapi import status
 
-from main import app
+from app.api.stream import origin_is_allowed, token_is_valid, websocket_stream
+from app.core.config import Settings
 
-class TestStreamAuth(unittest.TestCase):
-    def setUp(self):
-        self.client = TestClient(app)
 
-    def test_websocket_auth_success(self):
-        with self.client.websocket_connect("/api/stream?token=test-secret") as websocket:
-            # If no exception is raised, connection was successful
-            # Since TestClient manages its own state in a different way in newer starlette versions,
-            # we just test that we can connect and receive a message or at least not get disconnected with 1008
-            pass
+def make_settings(**changes) -> Settings:
+    base = Settings(
+        app_name="test",
+        vision_mode="lite",
+        vision_model="model.pt",
+        api_token=None,
+        allowed_origins=("http://localhost:3000",),
+        qdrant_url=None,
+        qdrant_api_key=None,
+        gemini_api_key=None,
+        gemini_model="gemini-test",
+        rag_strict=False,
+        synthesis_interval_seconds=4.0,
+        max_payload_bytes=1024,
+    )
+    return replace(base, **changes)
 
-    def test_websocket_auth_failure_missing_token(self):
-        with self.assertRaises(WebSocketDisconnect) as context:
-            with self.client.websocket_connect("/api/stream"):
-                pass
-        self.assertEqual(context.exception.code, 1008)
 
-    def test_websocket_auth_failure_wrong_token(self):
-        with self.assertRaises(WebSocketDisconnect) as context:
-            with self.client.websocket_connect("/api/stream?token=wrong-secret"):
-                pass
-        self.assertEqual(context.exception.code, 1008)
+def test_token_and_origin_policy_helpers():
+    assert token_is_valid(None, None)
+    assert token_is_valid("correct", "correct")
+    assert not token_is_valid(None, "correct")
+    assert not token_is_valid("wrong", "correct")
+    assert origin_is_allowed(None, ("http://localhost:3000",))
+    assert origin_is_allowed("https://example.com", ("*",))
+    assert not origin_is_allowed("https://evil.example", ("https://example.com",))
 
-if __name__ == '__main__':
-    unittest.main()
+
+@pytest.mark.asyncio
+async def test_websocket_rejects_invalid_token():
+    websocket = AsyncMock()
+    websocket.query_params = {"token": "wrong"}
+    websocket.headers = {}
+    websocket.app = SimpleNamespace(
+        state=SimpleNamespace(
+            settings=make_settings(api_token="correct"),
+            vision_pipeline=MagicMock(),
+            rag_engine=None,
+        )
+    )
+
+    await websocket_stream(websocket)
+
+    websocket.accept.assert_not_awaited()
+    websocket.close.assert_awaited_once_with(
+        code=status.WS_1008_POLICY_VIOLATION,
+        reason="Invalid token",
+    )
+
+
+@pytest.mark.asyncio
+async def test_websocket_rejects_disallowed_origin():
+    websocket = AsyncMock()
+    websocket.query_params = {}
+    websocket.headers = {"origin": "https://evil.example"}
+    websocket.app = SimpleNamespace(
+        state=SimpleNamespace(
+            settings=make_settings(),
+            vision_pipeline=MagicMock(),
+            rag_engine=None,
+        )
+    )
+
+    await websocket_stream(websocket)
+
+    websocket.close.assert_awaited_once_with(
+        code=status.WS_1008_POLICY_VIOLATION,
+        reason="Origin not allowed",
+    )
