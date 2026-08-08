@@ -143,13 +143,12 @@ export const StreamController = React.memo(function StreamController({
 
   const handleWorkerEvent = useCallback((message: LocalVisionWorkerEvent) => {
     if (message.type === "progress") {
-      if (modeRef.current === "browser" && streamingRef.current) setConnectionState("loading");
       setModelProgress(message.progress);
       setModelStatus(message.status === "hardware"
-        ? "Detecting NVIDIA, AMD, or CPU runtime"
+        ? "Checking for NVIDIA, AMD, or CPU acceleration"
         : message.progress === null
-          ? "Preparing the on-device model"
-          : `Downloading vision model · ${message.progress}%`);
+          ? "Upgrading the built-in analyzer"
+          : `Loading optional object model · ${message.progress}%`);
       return;
     }
     if (message.type === "runtime") {
@@ -169,8 +168,7 @@ export const StreamController = React.memo(function StreamController({
       localFailedRef.current = true;
       clearFrameLoop();
       setConnectionState("error");
-      setErrorMessage(`On-device inference could not start. ${message.message} ` +
-        "Check the network for the first model download, then retry.");
+      setErrorMessage(`On-device analysis could not start. ${message.message} Retry the video or use a current Chrome or Edge browser.`);
       workerRef.current?.postMessage({ type: "dispose" });
       workerRef.current = null;
       return;
@@ -211,7 +209,7 @@ export const StreamController = React.memo(function StreamController({
       localFailedRef.current = true;
       clearFrameLoop();
       setConnectionState("error");
-      setErrorMessage("The browser stopped the on-device vision worker. Retry the analysis or use the self-hosted backend.");
+      setErrorMessage("The browser stopped the on-device vision worker. Retry the analysis or use a current Chrome or Edge browser.");
       workerRef.current = null;
     };
     workerRef.current = worker;
@@ -457,7 +455,7 @@ export const StreamController = React.memo(function StreamController({
   const stateLabel = isSample ? "Interactive sample"
     : connectionState === "connected" && mode === "browser" ? "On-device analysis"
     : connectionState === "connected" ? "Backend connected"
-    : connectionState === "loading" ? "Loading local model"
+    : connectionState === "loading" ? "Starting on-device"
     : connectionState === "connecting" ? "Connecting"
     : connectionState === "error" ? "Analysis issue" : "Backend offline";
 
@@ -527,7 +525,7 @@ export const StreamController = React.memo(function StreamController({
         {mode === "browser" && isStreaming && connectionState === "loading" && (
           <div className="model-loading-card" role="status" aria-live="polite">
             <LoaderCircle size={18} className="loading-spinner" />
-            <div><strong>{modelStatus}</strong><span>First run downloads and caches the compact model.</span></div>
+            <div><strong>{modelStatus}</strong><span>Built-in analysis starts first; GPU → WASM → CPU fallback is automatic.</span></div>
             {modelProgress !== null && <progress max="100" value={modelProgress} aria-label="Model download progress" />}
           </div>
         )}
@@ -618,7 +616,7 @@ export const StreamController = React.memo(function StreamController({
             ) : (
               <div className="connection-fields">
                 <div><p className="section-kicker">On-device engine</p><h4>Private browser inference</h4></div>
-                <p className="local-engine-copy">The worker selects a high-performance NVIDIA or AMD WebGPU adapter when available, then automatically falls back to quantized CPU/WASM. Model files are cached after the first download.</p>
+                <p className="local-engine-copy">The worker selects a high-performance NVIDIA or AMD WebGPU adapter when available, retries with quantized CPU/WASM, and always retains a dependency-free CPU motion analyzer. Model files are cached after a successful download.</p>
                 <p className="field-help"><ShieldCheck size={14} /> Video frames never leave this browser in On-device mode.</p>
                 <small className="model-revision">Model revision · {LOCAL_VISION_MODEL.revision.slice(0, 12)}</small>
               </div>

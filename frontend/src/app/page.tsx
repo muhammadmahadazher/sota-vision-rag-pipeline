@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { StreamController } from "@/components/StreamController";
 import { NarrationPanel } from "@/components/NarrationPanel";
+import { LocalQuickstart } from "@/components/LocalQuickstart";
 import { AnalysisPacket, DEMO_SCENES } from "@/lib/vision";
 
 const repositoryUrl = "https://github.com/muhammadmahadazher/sota-vision-rag-pipeline";
@@ -95,6 +96,8 @@ export default function Home() {
           <div><strong>Grounded synthesis</strong><p>Get private local summaries immediately, or enable Gemini narration on your own backend.</p></div>
         </article>
       </section>
+
+      <LocalQuickstart />
 
       <footer className="site-footer">
         <div className="brand footer-brand">

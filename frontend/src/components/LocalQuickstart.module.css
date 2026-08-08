@@ -1,0 +1,170 @@
+.section {
+  width: min(100% - 48px, 1480px);
+  margin: 18px auto 0;
+  padding: clamp(24px, 4vw, 48px);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 82% 10%, rgba(110, 231, 199, .08), transparent 30%),
+    rgba(12, 15, 21, .72);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.heading p {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.heading h2 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(1.65rem, 3vw, 2.8rem);
+  line-height: 1.08;
+  letter-spacing: -.045em;
+}
+
+.heading > a {
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.demoGuide {
+  display: grid;
+  grid-template-columns: minmax(220px, .7fr) 2fr;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(110, 231, 199, .2);
+  border-radius: 16px;
+  background: rgba(110, 231, 199, .035);
+}
+
+.demoIntro, .cardTitle, .hardwareNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.demoIntro > span, .cardTitle > span, .hardwareNote > span {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.demoIntro strong, .cardTitle strong, .hardwareNote strong { font-size: 12px; }
+.demoIntro p, .cardTitle p, .hardwareNote p {
+  margin: 5px 0 0;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.demoGuide ol {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  list-style: none;
+}
+
+.demoGuide li {
+  min-width: 0;
+  padding: 2px 18px;
+  display: flex;
+  gap: 10px;
+  border-left: 1px solid var(--line);
+}
+
+.demoGuide li > span { color: var(--accent); font: 700 8px var(--font-mono), monospace; }
+.demoGuide li strong { display: block; font-size: 10px; }
+.demoGuide li p { margin: 5px 0 0; color: var(--faint); font-size: 9px; line-height: 1.5; }
+
+.platformGrid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.platformGrid article {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .018);
+}
+
+.commandBlock {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #07090d;
+}
+
+.commandBlock > span {
+  display: block;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.commandBlock pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  color: #d9e4e1;
+  font: 500 10px/1.75 var(--font-mono), monospace;
+}
+
+.openAt { margin: 14px 0 0; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 9px; }
+.openAt svg { color: var(--accent); }
+.openAt code, .hardwareNote code { color: #c8f7ea; font-family: var(--font-mono), monospace; }
+
+.hardwareNote {
+  margin-top: 14px;
+  padding: 17px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .012);
+}
+
+@media (max-width: 980px) {
+  .demoGuide { grid-template-columns: 1fr; }
+  .demoGuide li:first-child { border-left: 0; }
+}
+
+@media (max-width: 820px) {
+  .section { width: min(100% - 24px, 1480px); }
+  .heading { align-items: flex-start; flex-direction: column; }
+  .demoGuide ol, .platformGrid { grid-template-columns: 1fr; }
+  .demoGuide li { padding: 12px 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+
+@media (max-width: 560px) {
+  .section { padding: 20px 16px; border-radius: 16px; }
+  .platformGrid article { padding: 15px; }
+  .commandBlock pre { font-size: 9px; }
+}

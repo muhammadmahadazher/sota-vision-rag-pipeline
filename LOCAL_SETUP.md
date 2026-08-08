@@ -103,8 +103,8 @@ Pop-Location
 
 | Path | Preferred accelerator | Automatic fallback |
 | --- | --- | --- |
-| Hosted/local browser | Recognized NVIDIA or AMD high-performance WebGPU adapter | Quantized WASM on CPU |
+| Hosted/local browser | Recognized NVIDIA or AMD high-performance WebGPU adapter | Quantized WASM, then dependency-free browser CPU vision |
 | Advanced Python backend | NVIDIA CUDA or AMD ROCm through PyTorch | CPU advanced model |
 | Standard Python backend | CPU OpenCV-lite | Always available |
 
-WebGPU exposes only limited adapter details for privacy. Aether requests the browser's high-performance adapter and uses it only when the reported vendor is NVIDIA or AMD and it is not a software fallback adapter. Any model-load or inference failure triggers a fresh CPU/WASM pipeline automatically.
+WebGPU exposes only limited adapter details for privacy. Aether requests the browser's high-performance adapter and uses it only when the reported vendor is NVIDIA or AMD and it is not a software fallback adapter. Built-in CPU motion analysis starts immediately. The optional object model upgrades to GPU or WASM when available, so a blocked CDN or model download never makes the hosted demo unusable.

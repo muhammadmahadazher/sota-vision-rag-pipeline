@@ -3,8 +3,8 @@ import type { DetectedObject } from "@/lib/vision";
 export const LOCAL_VISION_MODEL = {
   id: "Xenova/yolos-tiny",
   revision: "e2f9c7673f0fa61849efe2b56a0d7774779ebb9d",
-  runtime: "Transformers.js 4.2.0",
-  workerAsset: "local-vision-worker-v2.js",
+  runtime: "Hybrid browser vision",
+  workerAsset: "local-vision-worker-v3.js",
 } as const;
 
 export interface WorkerDetection {
@@ -21,7 +21,7 @@ export interface WorkerDetection {
 interface RuntimeMetadata {
   runtime: string;
   vendor: string;
-  accelerator: "webgpu" | "wasm";
+  accelerator: "webgpu" | "wasm" | "native";
   fallbackReason: string | null;
 }
 

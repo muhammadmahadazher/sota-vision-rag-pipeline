@@ -9,13 +9,13 @@ Aether Vision RAG is an open-source, privacy-first visual intelligence workspace
 
 **[Open the interactive demo →](https://muhammadmahadazher.github.io/sota-vision-rag-pipeline/)**
 
-The hosted page is locked to real **On-device** inference so an uploaded video can never be routed accidentally to an unavailable localhost API. Upload a video or allow the camera and wait for the pinned model to download once; it is cached by the browser and frames never leave the device.
+The hosted page is locked to real **On-device** inference so an uploaded video can never be routed accidentally to an unavailable localhost API. Dependency-free motion analysis starts immediately; the worker then upgrades to the pinned 80-class model when WebGPU/WASM and the model host are available. Frames never leave the device.
 
 For local CPU/GPU installation, diagnostics, and real-video testing, see **[Local setup and hardware verification](LOCAL_SETUP.md)**.
 
 ## Why it is useful
 
-- **Works on GitHub Pages.** A pinned YOLOS-tiny model runs in a background browser worker for real 80-class object detection, overlays, summaries, and session memory with no backend or API key.
+- **Works on GitHub Pages.** A dependency-free browser vision engine starts immediately, while a pinned YOLOS-tiny model upgrades the worker to 80-class object detection when available—no backend or API key required.
 - **Scales to advanced vision.** YOLO-World v2 adds open-vocabulary Objects365 detection; InsightFace adds private face embeddings for temporal recall.
 - **Remembers scene context.** Qdrant retrieves similar frames instead of treating every image as an isolated event.
 - **Explains what changed.** Gemini synthesis is optional. When it is missing or rate-limited, a deterministic local narrator keeps the application useful.
@@ -138,7 +138,7 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 | Interactive dashboard | ✓ | ✓ | ✓ |
 | Webcam / video ingestion | ✓ | ✓ | ✓ |
 | 80-class object detection | ✓ | — | — |
-| Motion-region detection | — | ✓ | — |
+| Motion-region detection | ✓ | ✓ | — |
 | Face localization | — | ✓ | ✓ |
 | Objects365 recognition | — | — | ✓ |
 | Searchable memory | session | Qdrant | Qdrant |
@@ -146,7 +146,7 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 | Gemini narration | — | optional | optional |
 | GPU acceleration | NVIDIA/AMD WebGPU | — | NVIDIA CUDA / AMD ROCm |
 
-The on-device worker requests a high-performance WebGPU adapter, accepts recognized NVIDIA/AMD hardware, and automatically rebuilds the pipeline on quantized CPU/WASM if detection, model loading, or inference fails. Model files are version-pinned and cached locally. Uploaded frames are never sent to the repository owner or an API.
+The on-device worker starts with dependency-free CPU motion analysis, requests a high-performance WebGPU adapter, accepts recognized NVIDIA/AMD hardware, and retries the optional object model on quantized CPU/WASM if GPU initialization or inference fails. A blocked CDN or model host no longer stops analysis. Model files are version-pinned and cached locally. Uploaded frames are never sent to the repository owner or an API.
 
 ## WebSocket API
 

@@ -127,7 +127,7 @@ describe("StreamController on-device video", () => {
     }, { timeout: 3000 });
     expect(websocket).not.toHaveBeenCalled();
     expect(FakeWorker.instances).toHaveLength(1);
-    expect(String(FakeWorker.instances[0].url)).toContain("local-vision-worker-v2.js");
+    expect(String(FakeWorker.instances[0].url)).toContain("local-vision-worker-v3.js");
     expect(FakeWorker.instances[0].options).toMatchObject({ type: "module" });
     expect(FakeWorker.instances[0].posted.some((message) => message.type === "analyze")).toBe(true);
     expect(onPacketUpdate).toHaveBeenLastCalledWith(
