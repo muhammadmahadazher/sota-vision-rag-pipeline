@@ -1,4 +1,4 @@
-import { Pause, Play, ScanLine, ShieldCheck, SkipForward } from "lucide-react";
+import { Camera, Pause, Play, ScanLine, ShieldCheck, SkipForward, Upload } from "lucide-react";
 import {
   ConnectionState,
   DemoScene,
@@ -72,15 +72,8 @@ export function DemoSceneVisual({ visual }: { visual: DemoScene["visual"] }) {
   return (
     <div className={`demo-visual demo-visual--${visual}`}>
       <div className="demo-visual__glow" />
-      <div className="demo-visual__window">
-        <span />
-        <span />
-        <span />
-      </div>
-      <div className="demo-visual__display">
-        <ScanLine size={22} />
-        <span>Context stream</span>
-      </div>
+      <div className="demo-visual__window"><span /><span /><span /></div>
+      <div className="demo-visual__display"><ScanLine size={22} /><span>Context stream</span></div>
       <div className="demo-visual__person">
         <span className="demo-visual__head" />
         <span className="demo-visual__body" />
@@ -101,20 +94,35 @@ interface DemoControlsProps {
   running: boolean;
   onToggle: () => void;
   onNext: () => void;
+  onCamera: () => void;
+  onUpload: () => void;
 }
 
-export function DemoControls({ scene, running, onToggle, onNext }: DemoControlsProps) {
+export function DemoControls({
+  scene,
+  running,
+  onToggle,
+  onNext,
+  onCamera,
+  onUpload,
+}: DemoControlsProps) {
   return (
     <div className="demo-caption">
       <div>
-        <span>Now replaying</span>
+        <span>Sample scene</span>
         <strong>{scene.label}</strong>
       </div>
       <div className="stage-controls">
-        <button onClick={onToggle} aria-label={running ? "Pause demo" : "Play demo"}>
+        <button onClick={onCamera} aria-label="Analyze camera on this device" title="Use camera">
+          <Camera size={17} />
+        </button>
+        <button onClick={onUpload} aria-label="Analyze a video on this device" title="Upload video">
+          <Upload size={17} />
+        </button>
+        <button onClick={onToggle} aria-label={running ? "Pause sample" : "Play sample"} title={running ? "Pause sample" : "Play sample"}>
           {running ? <Pause size={17} /> : <Play size={17} />}
         </button>
-        <button onClick={onNext} aria-label="Next demo scene">
+        <button onClick={onNext} aria-label="Next sample scene" title="Next sample">
           <SkipForward size={17} />
         </button>
       </div>
@@ -122,10 +130,11 @@ export function DemoControls({ scene, running, onToggle, onNext }: DemoControlsP
   );
 }
 
-export function StreamPrivacyChip({ isDemo }: { isDemo: boolean }) {
-  return (
-    <span className="privacy-chip">
-      <ShieldCheck size={13} /> {isDemo ? "Sample data" : "Local stream"}
-    </span>
-  );
+export function StreamPrivacyChip({ mode }: { mode: "sample" | "local" | "backend" }) {
+  const label = mode === "sample"
+    ? "Sample data"
+    : mode === "local"
+      ? "Stays on device"
+      : "Direct to endpoint";
+  return <span className="privacy-chip"><ShieldCheck size={13} /> {label}</span>;
 }

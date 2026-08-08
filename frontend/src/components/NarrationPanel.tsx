@@ -78,7 +78,7 @@ export function NarrationPanel({ narrative }: NarrationPanelProps) {
         <div className="panel-heading">
           <div className="panel-title">
             <span className="spark-icon"><Sparkles size={16} /></span>
-            <div><p className="section-kicker">Gemini synthesis</p><h2>Scene narrative</h2></div>
+            <div><p className="section-kicker">Grounded synthesis</p><h2>Scene narrative</h2></div>
           </div>
           <button className="icon-button" onClick={() => void copyNarrative()} disabled={!displayedText} aria-label="Copy current narrative">
             {copied ? <Check size={16} /> : <Clipboard size={16} />}
@@ -91,7 +91,7 @@ export function NarrationPanel({ narrative }: NarrationPanelProps) {
             <div className="narrative-empty">
               <span><Sparkles size={20} /></span>
               <strong>Waiting for stream synthesis...</strong>
-              <small>Start the demo or connect a local backend.</small>
+              <small>Upload a video for on-device analysis or connect a self-hosted backend.</small>
             </div>
           )}
         </div>
@@ -105,7 +105,7 @@ export function NarrationPanel({ narrative }: NarrationPanelProps) {
         <div className="panel-heading memory-heading">
           <div className="panel-title">
             <span className="memory-icon"><Clock3 size={16} /></span>
-            <div><p className="section-kicker">Qdrant recall</p><h2>Temporal memory</h2></div>
+            <div><p className="section-kicker">Temporal recall</p><h2>Session memory</h2></div>
           </div>
           <div className="memory-actions">
             <button className="icon-button" onClick={exportMemory} disabled={!history.length && !displayedText} aria-label="Export memory as JSON"><Download size={16} /></button>
