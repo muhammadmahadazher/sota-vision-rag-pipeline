@@ -1,10 +1,12 @@
 import type { DetectedObject } from "@/lib/vision";
 
 export const LOCAL_VISION_MODEL = {
-  id: "Xenova/yolos-tiny",
-  revision: "e2f9c7673f0fa61849efe2b56a0d7774779ebb9d",
-  runtime: "Hybrid browser vision",
-  workerAsset: "local-vision-worker-v3.js",
+  id: "onnx-community/dfine_s_obj365-ONNX",
+  revision: "a61e4cdfe4f9d3188a305d91e37dbf38688ffbb8",
+  cpuId: "onnx-community/dfine_n_coco-ONNX",
+  cpuRevision: "380d2839c327efaf65dd0fe0c2c10ab7fadd5473",
+  runtime: "Adaptive D-FINE + temporal verification",
+  workerAsset: "local-vision-worker-v4.js",
 } as const;
 
 export interface WorkerDetection {
@@ -16,6 +18,14 @@ export interface WorkerDetection {
     xmax: number;
     ymax: number;
   };
+  trackId?: string;
+  observations?: number;
+}
+
+export interface WorkerTrackEvent {
+  type: "entered" | "exited";
+  label: string;
+  trackId: string;
 }
 
 interface RuntimeMetadata {
@@ -24,6 +34,9 @@ interface RuntimeMetadata {
   accelerator: "webgpu" | "wasm" | "native";
   fallbackReason: string | null;
   modelState: "loading" | "ready" | "fallback";
+  modelId: string | null;
+  classCount: number;
+  modelName: string;
 }
 
 export type LocalVisionWorkerEvent =
@@ -43,6 +56,12 @@ export type LocalVisionWorkerEvent =
       height: number;
       elapsedMs: number;
       runtime: string;
+      events: WorkerTrackEvent[];
+      rawCount: number;
+      candidateCount: number;
+      tentativeCount: number;
+      analyzed: boolean;
+      sceneSkipped: boolean;
     }
   | { type: "error"; message: string };
 
@@ -91,6 +110,7 @@ export function normalizeWorkerDetections(
         bbox: [xmin, ymin, xmax, ymax] as [number, number, number, number],
         label: detection.label.trim().toLowerCase() || "object",
         confidence: clamp(detection.score, 0, 1),
+        track_id: detection.trackId,
       };
     })
     .filter(
@@ -108,11 +128,15 @@ export function normalizeWorkerDetections(
         intersectionOverUnion(existing.bbox, candidate.bbox) >= 0.45,
     );
     if (overlapsSelected) continue;
-    selected.push({ ...candidate, track_id: "local-" + (selected.length + 1) });
+    selected.push({
+      ...candidate,
+      track_id: candidate.track_id || "local-" + (selected.length + 1),
+    });
     if (selected.length >= 24) break;
   }
   return selected;
 }
+
 function pluralize(label: string, count: number) {
   if (count === 1) return label;
   if (label === "person") return "people";
@@ -129,13 +153,28 @@ function joinNaturalLanguage(items: string[]) {
   return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
-export function buildLocalNarrative(objects: DetectedObject[]) {
+function framePosition(object: DetectedObject, frameWidth: number) {
+  const center = (object.bbox[0] + object.bbox[2]) / 2;
+  if (center < frameWidth / 3) return "on the left";
+  if (center > frameWidth * 2 / 3) return "on the right";
+  return "near the center";
+}
+
+export function buildLocalNarrative(
+  objects: DetectedObject[],
+  events: WorkerTrackEvent[] = [],
+  frameWidth?: number,
+) {
   const confident = objects
     .filter((object) => object.confidence >= 0.4)
     .sort((left, right) => right.confidence - left.confidence);
 
   if (!confident.length) {
-    return "No supported objects are confidently visible in the current frame. On-device analysis is active and the video remains in this browser.";
+    const exited = events.filter((event) => event.type === "exited").map((event) => event.label);
+    if (exited.length) {
+      return `${joinNaturalLanguage(Array.from(new Set(exited)))} left the verified view. No other object has yet been confirmed across multiple frames.`;
+    }
+    return "No object has yet been confirmed across multiple frames. Analysis is still running locally in this browser.";
   }
 
   const counts = new Map<string, number>();
@@ -143,8 +182,21 @@ export function buildLocalNarrative(objects: DetectedObject[]) {
     counts.set(object.label, (counts.get(object.label) ?? 0) + 1);
   });
   const summary = Array.from(counts.entries())
-    .slice(0, 6)
+    .slice(0, 8)
     .map(([label, count]) => `${count} ${pluralize(label, count)}`);
+  const resolvedFrameWidth = typeof frameWidth === "number" && Number.isFinite(frameWidth) && frameWidth > 0
+    ? frameWidth
+    : Math.max(...confident.map((object) => object.bbox[2]), 1);
+  const prominent = [...confident]
+    .sort((left, right) => {
+      const leftArea = (left.bbox[2] - left.bbox[0]) * (left.bbox[3] - left.bbox[1]);
+      const rightArea = (right.bbox[2] - right.bbox[0]) * (right.bbox[3] - right.bbox[1]);
+      return rightArea - leftArea;
+    })[0];
+  const entered = events.filter((event) => event.type === "entered").map((event) => event.label);
+  const change = entered.length
+    ? ` Newly confirmed: ${joinNaturalLanguage(Array.from(new Set(entered)))}.`
+    : "";
 
-  return `On-device analysis currently sees ${joinNaturalLanguage(summary)}. Frames stay in this browser; only these temporary scene observations are retained in session memory.`;
+  return `Verified across multiple frames: ${joinNaturalLanguage(summary)}. The most prominent ${prominent.label} is ${framePosition(prominent, resolvedFrameWidth)}.${change} Frames stay in this browser; only stable observations enter session memory.`;
 }

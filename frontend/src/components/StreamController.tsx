@@ -24,7 +24,7 @@ interface StreamControllerProps {
   onPacketUpdate?: (packet: AnalysisPacket) => void;
 }
 
-const LOCAL_FRAME_INTERVAL_MS = 1800;
+const LOCAL_FRAME_INTERVAL_MS = 700;
 const BACKEND_FRAME_INTERVAL_MS = 250;
 const LOCAL_FRAME_MAX_EDGE = 640;
 
@@ -62,7 +62,7 @@ export const StreamController = React.memo(function StreamController({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [ttsEnabled, setTtsEnabled] = useState(false);
-  const [threshold, setThreshold] = useState(0.5);
+  const [threshold, setThreshold] = useState(0.45);
   const [endpoint, setEndpoint] = useState(
     process.env.NEXT_PUBLIC_VISION_WS_URL ?? "ws://127.0.0.1:8000/api/stream",
   );
@@ -151,8 +151,8 @@ export const StreamController = React.memo(function StreamController({
         ? "Checking for NVIDIA, AMD, or CPU acceleration"
         : message.progress === null
           ? "Upgrading the built-in analyzer"
-          : `Loading 80-class object model · ${message.progress}%`);
-      setModelDetail(message.file || "Preparing the private object detector");
+          : `Loading hardware-optimized D-FINE · ${message.progress}%`);
+      setModelDetail(message.file || "Preparing detection and temporal verification");
       return;
     }
     if (message.type === "runtime") {
@@ -162,14 +162,14 @@ export const StreamController = React.memo(function StreamController({
         : message.fallbackReason
           ? `${message.runtime} fallback active`
           : `${message.runtime} selected`);
-      setModelDetail(message.fallbackReason ?? "The 80-class object detector is initializing.");
+      setModelDetail(message.fallbackReason ?? `${message.modelName} (${message.classCount} classes) is initializing.`);
       return;
     }
     if (message.type === "ready") {
       setModelProgress(100);
       setModelState(message.modelState);
       setModelStatus(message.modelState === "fallback" ? `${message.runtime} fallback active` : `${message.runtime} ready`);
-      setModelDetail(message.fallbackReason ?? "80-class object detection is active and processing locally.");
+      setModelDetail(message.fallbackReason ?? `${message.modelName} (${message.classCount} classes) and multi-frame verification are active.`);
       if (modeRef.current === "browser" && streamingRef.current) setConnectionState("connected");
       return;
     }
@@ -193,8 +193,8 @@ export const StreamController = React.memo(function StreamController({
     publishPacket({
       ...EMPTY_PACKET,
       objects,
-      narrative: buildLocalNarrative(objects),
-      status: "On-device analysis",
+      narrative: buildLocalNarrative(objects, message.events, message.width),
+      status: message.sceneSkipped ? "Stable scene · verified tracks reused" : message.tentativeCount > 0 ? `Verifying ${message.tentativeCount} candidate${message.tentativeCount === 1 ? "" : "s"}` : "Multi-frame verification",
       qdrant_latency_ms: message.elapsedMs,
       device: message.runtime,
       fps: frameTimesRef.current.length,
@@ -580,7 +580,7 @@ export const StreamController = React.memo(function StreamController({
       <div className="telemetry-grid">
         <Metric icon={<Activity size={16} />} label="Throughput" value={`${packet.fps || 0}`} unit="FPS" note={mode === "browser" ? "private" : "live"} />
         <Metric icon={<Gauge size={16} />} label="Pipeline latency" value={`${Math.round(packet.qdrant_latency_ms)}`} unit="ms" note="latest" />
-        <Metric icon={<ScanLine size={16} />} label="Detections" value={`${visibleObjects.length + visibleFaces.length}`} unit="active" note={`≥ ${Math.round(threshold * 100)}%`} />
+        <Metric icon={<ScanLine size={16} />} label="Detections" value={`${visibleObjects.length + visibleFaces.length}`} unit="verified" note={`≥ ${Math.round(threshold * 100)}%`} />
         <Metric icon={<Cpu size={16} />} label="Runtime" value={packet.device} note="auto" runtime />
       </div>
 
@@ -612,7 +612,7 @@ export const StreamController = React.memo(function StreamController({
             </div>
             <div className="setting-group">
               <div className="setting-copy"><span>Confidence threshold</span><strong>{Math.round(threshold * 100)}%</strong></div>
-              <input aria-label="Confidence threshold" type="range" min="0.2" max="0.95" step="0.05" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} />
+              <input aria-label="Confidence threshold" type="range" min="0.4" max="0.95" step="0.05" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} />
             </div>
             <SettingToggle active={showLabels} onClick={() => setShowLabels((shown) => !shown)}
               icon={showLabels ? <Eye size={17} /> : <EyeOff size={17} />} title="Detection labels" detail="Show class and confidence" />
@@ -630,9 +630,9 @@ export const StreamController = React.memo(function StreamController({
             ) : (
               <div className="connection-fields">
                 <div><p className="section-kicker">On-device engine</p><h4>Private browser inference</h4></div>
-                <p className="local-engine-copy">The worker selects a high-performance NVIDIA or AMD WebGPU adapter when available, retries with quantized CPU/WASM, and retains a dependency-free motion analyzer. The pinned runtime and model are served with the app—no runtime CDN is required.</p>
+                <p className="local-engine-copy">NVIDIA and AMD use the 365-class D-FINE-small fp16 model. CPU/WASM uses a measured 80-class D-FINE-nano int8 fallback for responsive analysis. Both paths suppress duplicate boxes and require repeated evidence before an object can enter the overlay, inventory, narrative, or memory.</p>
                 <p className="field-help"><ShieldCheck size={14} /> Video frames never leave this browser in On-device mode.</p>
-                <small className="model-revision">Model revision · {LOCAL_VISION_MODEL.revision.slice(0, 12)}</small>
+                <small className="model-revision">GPU · {LOCAL_VISION_MODEL.revision.slice(0, 8)} · CPU · {LOCAL_VISION_MODEL.cpuRevision.slice(0, 8)}</small>
               </div>
             )}
           </aside>

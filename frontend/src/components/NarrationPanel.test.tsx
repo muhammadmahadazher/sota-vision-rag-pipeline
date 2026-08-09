@@ -58,4 +58,15 @@ describe('NarrationPanel', () => {
     // It's rendered in the history list which also has styling
     expect(screen.getAllByText('First narrative').length).toBeGreaterThan(0);
   });
+
+  it('renders live replacements immediately instead of restarting the typewriter', () => {
+    const { rerender } = render(<NarrationPanel narrative="First narrative is still typing" />);
+
+    act(() => {
+      vi.advanceTimersByTime(28);
+    });
+    rerender(<NarrationPanel narrative="Verified live scene update" />);
+
+    expect(screen.getByText('Verified live scene update')).toBeInTheDocument();
+  });
 });

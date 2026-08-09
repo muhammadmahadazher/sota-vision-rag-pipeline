@@ -17,7 +17,7 @@ describe("browser hardware selection", () => {
     expect(fake.requestAdapter).toHaveBeenCalledWith({ powerPreference: "high-performance" });
     expect(selection).toMatchObject({
       device: "webgpu",
-      dtype: "q4f16",
+      dtype: "fp16",
       vendor,
       fallbackReason: null,
     });
@@ -30,7 +30,7 @@ describe("browser hardware selection", () => {
   ])("falls back to quantized CPU/WASM for %s", async (_case, navigatorLike) => {
     const selection = await selectBrowserHardware(navigatorLike);
     expect(selection.device).toBe("wasm");
-    expect(selection.dtype).toBe("q4");
+    expect(selection.dtype).toBe("q8");
     expect(selection.vendor).toBe("CPU");
     expect(selection.fallbackReason).toBeTruthy();
   });

@@ -7,12 +7,12 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-load_dotenv()
-
 from app.api.stream import router as stream_router
 from app.core.config import Settings
 from app.core.inference import VisionPipeline
 from app.core.rag_engine import RAGManager
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,

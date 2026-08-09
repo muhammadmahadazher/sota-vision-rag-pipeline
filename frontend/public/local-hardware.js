@@ -4,7 +4,7 @@ const AMD_MARKERS = ["amd", "advanced micro devices", "1002", "ati technologies"
 export function cpuRuntime(reason = null) {
   return {
     device: "wasm",
-    dtype: "q4",
+    dtype: "q8",
     vendor: "CPU",
     runtime: "CPU · WASM",
     fallbackReason: reason,
@@ -52,7 +52,7 @@ export async function selectBrowserHardware(navigatorLike = globalThis.navigator
 
     return {
       device: "webgpu",
-      dtype: "q4f16",
+      dtype: "fp16",
       vendor,
       runtime: `${vendor} GPU · WebGPU`,
       fallbackReason: null,

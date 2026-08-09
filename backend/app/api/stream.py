@@ -10,6 +10,7 @@ import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
 from app.core.config import Settings
+from app.core.temporal import TemporalObjectVerifier
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["stream"])
@@ -50,6 +51,7 @@ async def process_frames_consumer(
     rag_engine = websocket.app.state.rag_engine
     last_narrative = ""
     last_synthesis_time = 0.0
+    object_verifier = TemporalObjectVerifier()
 
     while True:
         data = await queue.get()
@@ -65,8 +67,13 @@ async def process_frames_consumer(
                 continue
 
             results = await asyncio.to_thread(vision_pipeline.process_frame, frame)
-            objects = results.get("objects", [])
+            raw_objects = results.get("objects", [])
+            objects, events, temporal_metrics = object_verifier.update(raw_objects)
             faces = results.get("faces", [])
+            response_metrics = {
+                **results.get("metrics", {}),
+                "temporal": temporal_metrics,
+            }
             historical_context: list[dict[str, Any]] = []
             qdrant_latency_ms = 0.0
             primary_embedding = next(
@@ -92,7 +99,8 @@ async def process_frames_consumer(
                 metadata = {
                     "objects": objects,
                     "faces": _public_faces(faces),
-                    "metrics": results.get("metrics", {}),
+                    "events": events,
+                    "metrics": response_metrics,
                 }
                 if rag_engine:
                     narrative = await rag_engine.synthesize_context(
@@ -118,12 +126,13 @@ async def process_frames_consumer(
                 {
                     "objects": objects,
                     "faces": _public_faces(faces),
+                    "events": events,
                     "narrative": narrative,
                     "status": "Connected",
                     "qdrant_latency_ms": round(qdrant_latency_ms, 2),
                     "device": getattr(vision_pipeline, "device", "unknown"),
                     "backend": getattr(vision_pipeline, "backend_name", "unknown"),
-                    "metrics": results.get("metrics", {}),
+                    "metrics": response_metrics,
                 }
             )
         except asyncio.CancelledError:

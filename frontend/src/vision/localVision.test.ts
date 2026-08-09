@@ -69,6 +69,6 @@ describe("buildLocalNarrative", () => {
       buildLocalNarrative([
         { bbox: [0, 0, 1, 1], label: "cat", confidence: 0.2 },
       ]),
-    ).toContain("No supported objects");
+    ).toContain("No object has yet been confirmed");
   });
 });

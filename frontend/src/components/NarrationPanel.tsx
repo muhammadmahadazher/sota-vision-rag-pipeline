@@ -30,6 +30,15 @@ export function NarrationPanel({ narrative }: NarrationPanelProps) {
       ].slice(0, 50));
     }
     currentNarrativeRef.current = narrative;
+
+    // Live inference can produce a refreshed sentence every analysis cycle.
+    // After the initial reveal, render replacements immediately so repeated
+    // updates cannot trap the UI at the first few typewriter characters.
+    if (previous) {
+      setDisplayedText(narrative);
+      return;
+    }
+
     setDisplayedText("");
     let index = 0;
     const interval = setInterval(() => {
