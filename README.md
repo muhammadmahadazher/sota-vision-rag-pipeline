@@ -9,16 +9,16 @@ Aether Vision RAG is an open-source, privacy-first visual intelligence workspace
 
 **[Open the interactive demo →](https://muhammadmahadazher.github.io/sota-vision-rag-pipeline/)**
 
-The hosted page is locked to real **On-device** inference so an uploaded video can never be routed accidentally to an unavailable localhost API. Dependency-free motion analysis starts immediately; the pinned 80-class D-FINE detector then starts on CPU/WASM and safely attempts an fp16 WebGPU upgrade on recognized NVIDIA or AMD hardware. Multi-frame verification blocks transient predictions from the overlay, narrative, and memory. Frames never leave the device.
+The hosted page is locked to real **On-device** inference so an uploaded video can never be routed accidentally to localhost. Dependency-free motion analysis starts immediately, then the bundled 80-class RF-DETR Nano detector takes over on dependable CPU/WASM. A separate Florence-2 worker adds detailed keyframe captions when Chrome or Edge exposes a recognized NVIDIA or AMD WebGPU adapter. Multi-frame verification blocks transient boxes from the overlay and memory. Video frames never leave the browser; Florence model files are downloaded once from Hugging Face and browser-cached.
 
 For the implemented pipeline, quality gates, and design boundaries, see **[Architecture](ARCHITECTURE.md)**. For local CPU/GPU installation, diagnostics, and real-video testing, see **[Local setup and hardware verification](LOCAL_SETUP.md)**.
 
 ## Why it is useful
 
-- **Works on GitHub Pages.** A dependency-free browser engine starts immediately, while a pinned 80-class D-FINE model provides a reliable CPU/WASM baseline plus a safe NVIDIA/AMD WebGPU upgrade with duplicate suppression and temporal verification—no backend, API key, runtime CDN, or model-host request required.
+- **Works on GitHub Pages.** RF-DETR Nano is bundled for verified CPU/WASM object detection; Florence-2 is a lazy, pinned NVIDIA/AMD WebGPU narrator. No backend or API key is required, and caption failure never disables detection.
 - **Scales to advanced vision.** YOLO-World v2 adds open-vocabulary Objects365 detection; InsightFace adds private face embeddings for temporal recall.
 - **Remembers scene context.** Qdrant retrieves similar frames instead of treating every image as an isolated event.
-- **Explains what changed.** Gemini synthesis is optional. When it is missing or rate-limited, a deterministic local narrator keeps the application useful.
+- **Explains the real scene.** Florence-2 describes browser keyframes on supported GPUs. The deterministic verified-track narrator remains available everywhere, while Gemini is optional in self-hosted mode.
 - **Treats the browser as a product.** The responsive dashboard includes real webcam/video ingestion, model progress, confidence controls, overlay labels, text-to-speech, telemetry, searchable session memory, and JSON export.
 - **Fails gracefully.** Vision, vector memory, and generative narration initialize independently and report their true state through the health API.
 
@@ -27,10 +27,12 @@ For the implemented pipeline, quality gates, and design boundaries, see **[Archi
 ~~~mermaid
 flowchart LR
     A["Webcam / video"] --> B{"Execution mode"}
-    B -->|"On-device"| C["Background browser worker"]
-    C --> D["Hardware-adaptive D-FINE detector"]
-    D --> E["Candidate filter + temporal verifier"]
-    E --> F["Searchable session memory"]
+    B -->|"On-device"| C["RF-DETR CPU/WASM worker"]
+    C --> D["Candidate filter + temporal verifier"]
+    B -->|"NVIDIA/AMD WebGPU"| E["Florence-2 keyframe worker"]
+    D --> F["Grounded output fusion"]
+    E --> F
+    F --> P["Searchable session memory"]
     B -->|"Self-hosted"| G["Bounded FastAPI WebSocket"]
     G --> H{"Vision mode"}
     H -->|"default"| I["OpenCV lite"]
@@ -76,7 +78,7 @@ Windows (one command; missing dependencies are installed automatically):
 .\run.bat
 ~~~
 
-To install without launching, run `.\setup.bat`. Keep the `run.bat` window open while using the app; press `Ctrl+C` there to stop both services.
+To install without launching, run `.\setup.bat`. Keep the `run.bat` window open while using the app; press `Ctrl+C` there to stop both services. The launcher waits until both <http://127.0.0.1:3000> and <http://127.0.0.1:8000/health> are ready before opening the dashboard.
 
 Windows keeps generated dependencies, a synchronized frontend working copy, and Next.js build output under `%LOCALAPPDATA%\AetherVision\environments`, with the selected path recorded in `.aether\dependency-cache.txt`. This avoids package/build corruption and long stalls when the repository is stored on Google Drive or OneDrive.
 
@@ -88,7 +90,7 @@ chmod +x setup.sh run.sh
 ./run.sh
 ~~~
 
-The first setup can take a few minutes; unchanged repeat runs are skipped. The Windows launcher installs anything missing, waits for both services, prints the exact URLs, and opens the dashboard only after it is ready. Native mode runs the frontend and backend. Vector memory is optional; start Qdrant separately or point **QDRANT_URL** at an existing instance.
+The first setup can take a few minutes; unchanged repeat runs are skipped. The Windows launcher installs anything missing, waits for both services, prints the exact URLs, and opens the dashboard only after it is ready. Native mode runs the frontend and backend. Vector memory is optional; start Qdrant separately or point **QDRANT_URL** at an existing instance. On the first supported-GPU browser run, Florence downloads roughly 145 MB of pinned model files and shows progress; later runs reuse the browser cache.
 
 ### Advanced vision mode
 
@@ -145,11 +147,11 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 | Face localization | — | ✓ | ✓ |
 | Objects365 recognition | — | — | ✓ |
 | Searchable memory | session | Qdrant | Qdrant |
-| Local narration | ✓ | ✓ | ✓ |
+| Local narration | RF-DETR + Florence/deterministic | ✓ | ✓ |
 | Gemini narration | — | optional | optional |
-| GPU acceleration | NVIDIA/AMD WebGPU | — | NVIDIA CUDA / AMD ROCm |
+| GPU acceleration | Florence NVIDIA/AMD WebGPU; detector stays CPU/WASM | — | NVIDIA CUDA / AMD ROCm |
 
-The on-device worker starts with dependency-free CPU motion analysis, activates the pinned 80-class D-FINE-nano int8 model on CPU/WASM, and then attempts an fp16 WebGPU upgrade on recognized NVIDIA/AMD hardware. The verified CPU session remains active if the GPU graph cannot initialize, so accelerator support can never remove semantic detection. Candidate boxes must survive score filtering, duplicate suppression, and two or three consistent observations before they can appear or enter memory. Runtime, WebAssembly, and model files are version-pinned and served by the same GitHub Pages deployment. Uploaded frames are never sent to the repository owner or an API.
+The detector worker starts with dependency-free motion analysis and then activates the bundled RF-DETR Nano q8 model on CPU/WASM. Candidate boxes must survive score filtering, duplicate suppression, and two or three consistent observations before they appear or enter memory. Independently, a recognized NVIDIA/AMD WebGPU adapter can run the pinned Florence-2 model on eight-second keyframes. Florence downloads model weights from Hugging Face on first use, but the video frame is processed locally and is never sent to Hugging Face, the repository owner, or an inference API.
 
 ## WebSocket API
 

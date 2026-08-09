@@ -1,10 +1,10 @@
 import type { DetectedObject } from "@/lib/vision";
 
 export const LOCAL_VISION_MODEL = {
-  id: "onnx-community/dfine_n_coco-ONNX",
-  revision: "380d2839c327efaf65dd0fe0c2c10ab7fadd5473",
-  runtime: "CPU-first D-FINE + safe WebGPU upgrade",
-  workerAsset: "local-vision-worker-v5.js",
+  id: "onnx-community/rfdetr_nano-ONNX",
+  revision: "eae21cee0687a91bcf9fa071605c48d7705d2d91",
+  runtime: "RF-DETR CPU/WASM + Florence-2 WebGPU",
+  workerAsset: "local-vision-worker-v6.js",
 } as const;
 
 export interface WorkerDetection {
@@ -49,6 +49,7 @@ export type LocalVisionWorkerEvent =
   | {
       type: "result";
       id: number;
+      sessionId?: number;
       detections: WorkerDetection[];
       width: number;
       height: number;

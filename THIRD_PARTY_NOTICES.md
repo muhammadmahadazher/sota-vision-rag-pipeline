@@ -1,8 +1,12 @@
 # Third-party browser assets
 
-The hosted demo includes the following pinned runtime and model artifacts so that on-device detection does not depend on a runtime CDN:
+The hosted demo includes a pinned browser runtime and detector so object detection does not depend on a runtime CDN:
 
 - Transformers.js 3.8.1 browser runtime and ONNX Runtime Web assets, Apache-2.0. Source: https://github.com/huggingface/transformers.js/tree/3.8.1
-- `Xenova/yolos-tiny` ONNX q4 and q4f16 weights at revision `e2f9c7673f0fa61849efe2b56a0d7774779ebb9d`. The converted model is based on `hustvl/yolos-tiny`, licensed Apache-2.0. Source: https://huggingface.co/Xenova/yolos-tiny/tree/e2f9c7673f0fa61849efe2b56a0d7774779ebb9d
+- `onnx-community/rfdetr_nano-ONNX` q8 ONNX weights at revision `eae21cee0687a91bcf9fa071605c48d7705d2d91`, Apache-2.0. The q8 detector graph is bundled with this repository. Source: https://huggingface.co/onnx-community/rfdetr_nano-ONNX/tree/eae21cee0687a91bcf9fa071605c48d7705d2d91
+
+The optional browser narrator downloads and caches its pinned model files on first use:
+
+- `onnx-community/Florence-2-base-ft` mixed-precision ONNX weights at revision `e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f`, MIT. Source: https://huggingface.co/onnx-community/Florence-2-base-ft/tree/e88a44eaf3791a35eae0c5a47b3dbcd36e67eb6f
 
 The project license does not replace the licenses or notices of these third-party components.

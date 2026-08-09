@@ -15,11 +15,11 @@ From the repository root, one command installs anything missing and starts both 
 .\run.bat
 ```
 
-The first run installs the pinned dependencies and can take a few minutes. Run `.\setup.bat` only when you want to install without launching. `.\run.bat` waits for both services, prints their URLs, then opens <http://127.0.0.1:3000> automatically. Keep that terminal open and press `Ctrl+C` to stop. Use `.\run.bat -NoBrowser` to disable automatic opening. **On-device** analyzes frames in the browser; **Self-hosted** uses `ws://127.0.0.1:8000/api/stream`.
+The first run installs the pinned dependencies and can take a few minutes. Run `.\setup.bat` only when you want to install without launching. `.\run.bat` waits for both services, prints their URLs, then opens <http://127.0.0.1:3000> automatically. Keep that terminal open and press `Ctrl+C` to stop. Use `.\run.bat -NoBrowser` to disable automatic opening. **On-device** analyzes frames in the browser; **Self-hosted** uses `ws://127.0.0.1:8000/api/stream`. Do not close the terminal before the `Frontend ready` and `Backend ready` messages appear.
 
 On Windows, generated Python/Node dependencies, a synchronized frontend working copy, and Next.js build output live under `%LOCALAPPDATA%\AetherVision\environments` instead of the repository. This keeps `run.bat` reliable when the repository is on Google Drive or OneDrive. The exact cache path is recorded in `.aether\dependency-cache.txt`; source files remain in the repository.
 
-The standard profile uses the reliable CPU-lite backend. Browser inference still selects NVIDIA/AMD WebGPU automatically when Chrome or Edge exposes a supported high-performance adapter.
+The standard profile uses the reliable CPU-lite backend. In browser mode, the bundled RF-DETR detector always uses CPU/WASM. Chrome or Edge automatically enables the separate Florence-2 keyframe narrator when it exposes a recognized NVIDIA or AMD high-performance WebGPU adapter.
 
 ## NVIDIA or AMD advanced backend
 
@@ -79,9 +79,9 @@ NVIDIA CUDA and AMD ROCm are supported by the advanced Linux profile when the ma
 ## Test a real video
 
 1. Open <http://127.0.0.1:3000>.
-2. Choose **On-device** to test browser WebGPU/WASM, or **Self-hosted** to test FastAPI.
+2. Choose **On-device** to test RF-DETR CPU/WASM plus optional Florence WebGPU, or **Self-hosted** to test FastAPI.
 3. Select **Upload video** and choose an MP4, WebM, or MOV file.
-4. Confirm the Runtime card reports the selected accelerator and detections appear over the video.
+4. Wait for `RF-DETR Nano COCO` to become ready and confirm verified detections appear over the video. On a supported GPU, the first Florence use downloads roughly 145 MB, displays progress, and may take about two minutes; later runs reuse the browser cache.
 5. For Self-hosted mode, confirm `/health` reports `vision.ready: true` first.
 
 Run the automated verification suite:
@@ -108,8 +108,8 @@ Pop-Location
 
 | Path | Preferred accelerator | Automatic fallback |
 | --- | --- | --- |
-| Hosted/local browser | Recognized NVIDIA or AMD high-performance WebGPU adapter | Quantized WASM, then dependency-free browser CPU vision |
+| Hosted/local browser | Florence-2 on recognized NVIDIA/AMD WebGPU | RF-DETR Nano q8 on CPU/WASM; motion analysis while it loads |
 | Advanced Python backend | NVIDIA CUDA or AMD ROCm through PyTorch | CPU advanced model |
 | Standard Python backend | CPU OpenCV-lite | Always available |
 
-WebGPU exposes only limited adapter details for privacy. Aether requests the browser's high-performance adapter and uses it only when the reported vendor is NVIDIA or AMD and it is not a software fallback adapter. Built-in CPU motion analysis starts immediately, followed by the pinned 80-class D-FINE-nano int8 model on CPU/WASM. Once that semantic detector is ready, the worker attempts an fp16 WebGPU upgrade. The verified CPU session remains active if the GPU graph cannot initialize. A persistent warning is shown only if the CPU model also fails and motion analysis is the sole remaining engine.
+WebGPU exposes only limited adapter details for privacy. Aether requests the browser's high-performance adapter and enables Florence only when the reported vendor is NVIDIA or AMD and it is not a software fallback adapter. Built-in motion analysis starts immediately, followed by the bundled 80-class RF-DETR Nano q8 model on CPU/WASM. Florence runs in a separate worker on eight-second keyframes, so a model download or GPU failure cannot disable object detection. If RF-DETR itself cannot initialize, the UI explicitly reports the motion-only fallback.

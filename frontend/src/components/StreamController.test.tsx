@@ -126,12 +126,20 @@ describe("StreamController on-device video", () => {
       expect(screen.getByText("On-device analysis")).toBeInTheDocument();
     }, { timeout: 3000 });
     expect(websocket).not.toHaveBeenCalled();
-    expect(FakeWorker.instances).toHaveLength(1);
-    expect(String(FakeWorker.instances[0].url)).toContain("local-vision-worker-v5.js");
-    expect(FakeWorker.instances[0].options).toMatchObject({ type: "module" });
-    expect(FakeWorker.instances[0].posted.some((message) => message.type === "analyze")).toBe(true);
-    expect(onPacketUpdate).toHaveBeenLastCalledWith(
-      expect.objectContaining({
+    expect(FakeWorker.instances).toHaveLength(2);
+    const detectorWorker = FakeWorker.instances.find((worker) =>
+      String(worker.url).includes("local-vision-worker-v6.js"),
+    );
+    const captionWorker = FakeWorker.instances.find((worker) =>
+      String(worker.url).includes("scene-caption-worker-v1.js"),
+    );
+    expect(detectorWorker).toBeDefined();
+    expect(captionWorker).toBeDefined();
+    expect(detectorWorker?.options).toMatchObject({ type: "module" });
+    expect(captionWorker?.options).toMatchObject({ type: "module" });
+    expect(detectorWorker?.posted.some((message) => message.type === "analyze")).toBe(true);
+    expect(captionWorker?.posted.some((message) => message.type === "prepare")).toBe(true);
+    expect(onPacketUpdate).toHaveBeenLastCalledWith(      expect.objectContaining({
         objects: [expect.objectContaining({ label: "person", confidence: 0.93 })],
         device: "CPU · WASM",
       }),
@@ -139,7 +147,9 @@ describe("StreamController on-device video", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     unmount();
-    expect(FakeWorker.instances[0].posted.some((message) => message.type === "dispose")).toBe(true);
+    expect(FakeWorker.instances.every((worker) =>
+      worker.posted.some((message) => message.type === "dispose"),
+    )).toBe(true);
   });
 
   it("keeps self-hosted processing an explicit separate mode", () => {

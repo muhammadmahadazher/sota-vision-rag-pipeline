@@ -14,6 +14,7 @@ import {
   buildLocalNarrative, LocalVisionWorkerEvent, LOCAL_VISION_MODEL,
   normalizeWorkerDetections,
 } from "@/vision/localVision";
+import { SCENE_CAPTION_MODEL, SceneCaptionWorkerEvent } from "@/vision/sceneCaption";
 import { IS_HOSTED_DEMO, modeAvailableOnDeployment } from "@/vision/deployment";
 import {
   DemoControls, DemoSceneVisual, DetectionOverlay, StatusDot, StreamPrivacyChip,
@@ -24,9 +25,12 @@ interface StreamControllerProps {
   onPacketUpdate?: (packet: AnalysisPacket) => void;
 }
 
-const LOCAL_FRAME_INTERVAL_MS = 700;
+const LOCAL_FRAME_INTERVAL_MS = 900;
+const CAPTION_FRAME_INTERVAL_MS = 8000;
 const BACKEND_FRAME_INTERVAL_MS = 250;
 const LOCAL_FRAME_MAX_EDGE = 640;
+const CAPTION_FRAME_MAX_EDGE = 960;
+const CAPTION_FRESHNESS_MS = 12000;
 
 export const StreamController = React.memo(function StreamController({
   onNarrativeUpdate,
@@ -34,18 +38,27 @@ export const StreamController = React.memo(function StreamController({
 }: StreamControllerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const captionCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const captionWorkerRef = useRef<Worker | null>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const captionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mediaUrlRef = useRef<string | null>(null);
+  const mediaSessionRef = useRef(0);
   const frameTimesRef = useRef<number[]>([]);
   const sceneIndexRef = useRef(0);
   const analysisSequenceRef = useRef(0);
+  const captionSequenceRef = useRef(0);
   const analysisBusyRef = useRef(false);
+  const captionBusyRef = useRef(false);
+  const captionDisabledRef = useRef(false);
+  const latestCaptionRef = useRef<{ narrative: string; capturedAt: number; runtime: string } | null>(null);
   const localFailedRef = useRef(false);
   const modeRef = useRef<VisionMode>("browser");
   const streamingRef = useRef(false);
+  const packetRef = useRef<AnalysisPacket>({ ...DEMO_SCENES[0], timestamp: 0 });
 
   const [mode, setMode] = useState<VisionMode>("browser");
   const [packet, setPacket] = useState<AnalysisPacket>(() => ({
@@ -74,6 +87,7 @@ export const StreamController = React.memo(function StreamController({
   const [errorMessage, setErrorMessage] = useState("");
 
   const publishPacket = useCallback((nextPacket: AnalysisPacket) => {
+    packetRef.current = nextPacket;
     setPacket(nextPacket);
     onPacketUpdate?.(nextPacket);
     if (nextPacket.narrative) onNarrativeUpdate?.(nextPacket.narrative);
@@ -106,7 +120,10 @@ export const StreamController = React.memo(function StreamController({
   const clearFrameLoop = useCallback(() => {
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
     frameIntervalRef.current = null;
+    if (captionIntervalRef.current) clearInterval(captionIntervalRef.current);
+    captionIntervalRef.current = null;
     analysisBusyRef.current = false;
+    captionBusyRef.current = false;
   }, []);
 
   const closeSocket = useCallback(() => {
@@ -115,6 +132,7 @@ export const StreamController = React.memo(function StreamController({
   }, []);
 
   const stopMedia = useCallback(() => {
+    mediaSessionRef.current += 1;
     clearFrameLoop();
     closeSocket();
     const video = videoRef.current;
@@ -132,26 +150,94 @@ export const StreamController = React.memo(function StreamController({
     setIsStreaming(false);
     setMediaSource(null);
     setMediaDimensions(null);
+    latestCaptionRef.current = null;
   }, [clearFrameLoop, closeSocket]);
 
   useEffect(() => () => {
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+    if (captionIntervalRef.current) clearInterval(captionIntervalRef.current);
     socketRef.current?.close();
     workerRef.current?.postMessage({ type: "dispose" });
+    captionWorkerRef.current?.postMessage({ type: "dispose" });
     const stream = videoRef.current?.srcObject as MediaStream | null;
     stream?.getTracks().forEach((track) => track.stop());
     if (mediaUrlRef.current) URL.revokeObjectURL(mediaUrlRef.current);
   }, []);
 
+  const handleCaptionEvent = useCallback((message: SceneCaptionWorkerEvent) => {
+    if (!streamingRef.current) return;
+    if (message.type === "caption-progress") {
+      if (!streamingRef.current) return;
+      setModelProgress(message.progress);
+      setModelState("loading");
+      setModelStatus(message.progress === null
+        ? "Preparing the Florence-2 scene narrator"
+        : `Loading Florence-2 scene narrator · ${message.progress}%`);
+      setModelDetail(message.file
+        ? `One-time model download: ${message.file}`
+        : "The narrator is cached after first use; video frames remain in this browser.");
+      return;
+    }
+    if (message.type === "caption-runtime") {
+      setModelState("loading");
+      setModelStatus(`${message.runtime} warming up`);
+      setModelDetail(`${message.modelName} is compiling for detailed keyframe descriptions.`);
+      return;
+    }
+    if (message.type === "caption-ready") {
+      setModelProgress(100);
+      setModelState("ready");
+      setModelStatus(`RF-DETR + ${message.modelName} ready`);
+      setModelDetail(`${message.runtime} supplies detailed scene descriptions while RF-DETR verifies object tracks.`);
+      return;
+    }
+
+    captionBusyRef.current = false;
+    if (message.type === "caption-unavailable") {
+      captionDisabledRef.current = true;
+      setModelState("ready");
+      setModelStatus("RF-DETR detector ready");
+      setModelDetail(`Detailed GPU captions are unavailable: ${message.reason} Verified object narratives remain active.`);
+      captionWorkerRef.current?.postMessage({ type: "dispose" });
+      captionWorkerRef.current = null;
+      return;
+    }
+    if (message.type === "caption-error") {
+      setModelState("ready");
+      setModelStatus("RF-DETR detector ready");
+      setModelDetail(`Detailed captions paused: ${message.message} Detection remains active.`);
+      return;
+    }
+
+    if (message.sessionId !== mediaSessionRef.current) return;
+    latestCaptionRef.current = {
+      narrative: message.narrative,
+      capturedAt: Date.now(),
+      runtime: message.runtime,
+    };
+    const current = packetRef.current;
+    const detectorRuntime = current.device.split(" + ")[0];
+    publishPacket({
+      ...current,
+      narrative: message.narrative,
+      qdrant_latency_ms: message.elapsedMs,
+      device: `${detectorRuntime} + ${message.runtime}`,
+      status: "Detailed keyframe caption · verified object tracks",
+      timestamp: Date.now(),
+    });
+    setModelState("ready");
+    setModelStatus("RF-DETR + Florence-2 ready");
+    setModelDetail(`Latest detailed keyframe completed in ${Math.round(message.elapsedMs)} ms.`);
+  }, [publishPacket]);
   const handleWorkerEvent = useCallback((message: LocalVisionWorkerEvent) => {
     if (message.type === "progress") {
       setModelProgress(message.progress);
       setModelState("loading");
       setModelStatus(message.status === "hardware"
-        ? "Checking for NVIDIA, AMD, or CPU acceleration"
+        ? "Starting the accurate RF-DETR detector"
         : message.progress === null
           ? "Upgrading the built-in analyzer"
-          : `Loading hardware-optimized D-FINE · ${message.progress}%`);
+          : `Loading RF-DETR · ${message.progress}%`);
       setModelDetail(message.file || "Preparing detection and temporal verification");
       return;
     }
@@ -180,11 +266,14 @@ export const StreamController = React.memo(function StreamController({
       setConnectionState("error");
       setErrorMessage(`On-device analysis could not start. ${message.message} Retry the video or use a current Chrome or Edge browser.`);
       workerRef.current?.postMessage({ type: "dispose" });
+      captionWorkerRef.current?.postMessage({ type: "dispose" });
       workerRef.current = null;
+      captionWorkerRef.current = null;
       return;
     }
 
     analysisBusyRef.current = false;
+    if (message.sessionId !== undefined && message.sessionId !== mediaSessionRef.current) return;
     if (modeRef.current !== "browser" || !streamingRef.current) return;
     const objects = normalizeWorkerDetections(message.detections, message.width, message.height);
     const now = performance.now();
@@ -193,10 +282,14 @@ export const StreamController = React.memo(function StreamController({
     publishPacket({
       ...EMPTY_PACKET,
       objects,
-      narrative: buildLocalNarrative(objects, message.events, message.width),
+      narrative: latestCaptionRef.current && Date.now() - latestCaptionRef.current.capturedAt <= CAPTION_FRESHNESS_MS
+        ? latestCaptionRef.current.narrative
+        : buildLocalNarrative(objects, message.events, message.width),
       status: message.sceneSkipped ? "Stable scene · verified tracks reused" : message.tentativeCount > 0 ? `Verifying ${message.tentativeCount} candidate${message.tentativeCount === 1 ? "" : "s"}` : "Multi-frame verification",
       qdrant_latency_ms: message.elapsedMs,
-      device: message.runtime,
+      device: latestCaptionRef.current
+        ? `${message.runtime} + ${latestCaptionRef.current.runtime}`
+        : message.runtime,
       fps: frameTimesRef.current.length,
       frame: { width: message.width, height: message.height },
       timestamp: Date.now(),
@@ -227,10 +320,64 @@ export const StreamController = React.memo(function StreamController({
     setModelProgress(0);
     setModelState("loading");
     setModelStatus("Preparing the on-device model");
-    setModelDetail("Loading the bundled detector runtime and pinned model.");
+    setModelDetail("Loading the bundled RF-DETR detector and temporal verifier.");
     return worker;
   }, [clearFrameLoop, handleWorkerEvent]);
 
+  const ensureCaptionWorker = useCallback(() => {
+    if (captionWorkerRef.current) return captionWorkerRef.current;
+    if (typeof Worker === "undefined") {
+      throw new Error("This browser does not support background caption workers.");
+    }
+    const worker = new Worker(new URL(SCENE_CAPTION_MODEL.workerAsset, document.baseURI), {
+      type: "module",
+      name: "aether-scene-caption",
+    });
+    worker.onmessage = (event: MessageEvent<SceneCaptionWorkerEvent>) => handleCaptionEvent(event.data);
+    worker.onerror = () => {
+      captionBusyRef.current = false;
+      setModelState("ready");
+      setModelStatus("RF-DETR detector ready");
+      setModelDetail("The detailed caption worker stopped, but object detection remains active.");
+      captionWorkerRef.current?.terminate();
+      captionWorkerRef.current = null;
+    };
+    captionWorkerRef.current = worker;
+    return worker;
+  }, [handleCaptionEvent]);
+
+  const captureCaptionFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = captionCanvasRef.current;
+    if (!video || !canvas || captionBusyRef.current || captionDisabledRef.current || modeRef.current !== "browser" ||
+        !streamingRef.current || video.paused || video.ended || video.videoWidth === 0) return;
+
+    const scale = Math.min(1, CAPTION_FRAME_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    captionBusyRef.current = true;
+    canvas.toBlob((frame) => {
+      if (!frame || modeRef.current !== "browser" || !streamingRef.current) {
+        captionBusyRef.current = false;
+        return;
+      }
+      try {
+        const worker = ensureCaptionWorker();
+        captionSequenceRef.current += 1;
+        worker.postMessage({
+          type: "caption",
+          id: captionSequenceRef.current,
+          sessionId: mediaSessionRef.current,
+          frame,
+        });
+      } catch {
+        captionBusyRef.current = false;
+      }
+    }, "image/jpeg", 0.88);
+  }, [ensureCaptionWorker]);
   const captureLocalFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -255,6 +402,7 @@ export const StreamController = React.memo(function StreamController({
         worker.postMessage({
           type: "analyze",
           id: analysisSequenceRef.current,
+          sessionId: mediaSessionRef.current,
           frame,
           width: canvas.width,
           height: canvas.height,
@@ -275,10 +423,15 @@ export const StreamController = React.memo(function StreamController({
     localFailedRef.current = false;
     setErrorMessage("");
     setConnectionState("loading");
-    setModelStatus(workerRef.current ? "Analyzing locally" : "Preparing the on-device model");
+    setModelStatus(workerRef.current ? "Analyzing locally" : "Preparing the on-device models");
+    if (!captionDisabledRef.current) {
+      ensureCaptionWorker().postMessage({ type: "prepare" });
+      captionIntervalRef.current = setInterval(captureCaptionFrame, CAPTION_FRAME_INTERVAL_MS);
+      window.setTimeout(captureCaptionFrame, 1200);
+    }
     frameIntervalRef.current = setInterval(captureLocalFrame, LOCAL_FRAME_INTERVAL_MS);
     window.setTimeout(captureLocalFrame, 120);
-  }, [captureLocalFrame, clearFrameLoop, closeSocket]);
+  }, [captureCaptionFrame, captureLocalFrame, clearFrameLoop, closeSocket, ensureCaptionWorker]);
 
   const transmitFrame = useCallback(() => {
     const video = videoRef.current;
@@ -443,7 +596,9 @@ export const StreamController = React.memo(function StreamController({
 
   const retryLocalAnalysis = () => {
     workerRef.current?.postMessage({ type: "dispose" });
+    captionWorkerRef.current?.postMessage({ type: "dispose" });
     workerRef.current = null;
+    captionWorkerRef.current = null;
     localFailedRef.current = false;
     startLocalAnalysis();
   };
@@ -576,6 +731,7 @@ export const StreamController = React.memo(function StreamController({
         }}
       />
       <canvas ref={canvasRef} hidden />
+      <canvas ref={captionCanvasRef} hidden />
 
       <div className="telemetry-grid">
         <Metric icon={<Activity size={16} />} label="Throughput" value={`${packet.fps || 0}`} unit="FPS" note={mode === "browser" ? "private" : "live"} />
@@ -630,7 +786,7 @@ export const StreamController = React.memo(function StreamController({
             ) : (
               <div className="connection-fields">
                 <div><p className="section-kicker">On-device engine</p><h4>Private browser inference</h4></div>
-                <p className="local-engine-copy">The pinned 80-class D-FINE-nano detector starts on CPU/WASM so analysis is always available, then safely attempts an fp16 WebGPU upgrade on recognized NVIDIA or AMD hardware. A failed GPU session never disables the active detector. Duplicate boxes are suppressed and repeated evidence is required before an object enters the overlay, inventory, narrative, or memory.</p>
+                <p className="local-engine-copy">RF-DETR Nano supplies accurate 80-class object boxes on dependable CPU/WASM. On supported NVIDIA or AMD hardware, Florence-2 runs separately on WebGPU to describe scene keyframes in natural language. Model files are cached after first use, video frames stay in this browser, and only repeated detections enter the overlay or memory.</p>
                 <p className="field-help"><ShieldCheck size={14} /> Video frames never leave this browser in On-device mode.</p>
                 <small className="model-revision">Pinned model · {LOCAL_VISION_MODEL.revision.slice(0, 12)} · CPU-first</small>
               </div>
