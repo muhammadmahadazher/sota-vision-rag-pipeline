@@ -17,24 +17,24 @@ flowchart LR
     A["Camera or local video"] --> B["Bounded 640 px frame sampler"]
     B --> C{"Scene changed?"}
     C -->|"no"| D["Reuse verified tracks"]
-    C -->|"yes or refresh due"| E{"Hardware scheduler"}
-    E -->|"NVIDIA / AMD"| F["D-FINE-small Objects365 · fp16 WebGPU"]
-    E -->|"other / unavailable"| G["D-FINE-nano COCO · int8 WASM"]
-    E -->|"model failure"| H["Dependency-free motion fallback"]
-    F --> I["Score floors + box validation + duplicate suppression"]
-    G --> I
+    C -->|"yes or refresh due"| E["D-FINE-nano COCO · int8 WASM baseline"]
+    E --> Q{"Recognized NVIDIA / AMD WebGPU?"}
+    Q -->|"yes"| F["Attempt fp16 WebGPU upgrade"]
+    Q -->|"no or upgrade failed"| I["Active semantic detector"]
+    F -->|"success"| I
+    E -->|"CPU model failure"| H["Dependency-free motion fallback"]
     H --> I
-    I --> J["IoU track association"]
-    J --> K{"Repeated evidence?"}
-    K -->|"not yet"| L["Tentative candidate · hidden"]
-    K -->|"2–3 frames"| M["Verified track + stable ID"]
-    M --> N["Entered / persisted / exited events"]
-    N --> O["Grounded spatial narrative"]
-    N --> P["Session memory"]
-    D --> O
+    I --> J["Score floors + box validation + duplicate suppression"]
+    J --> K["IoU track association"]
+    K --> L{"Repeated evidence?"}
+    L -->|"not yet"| M["Tentative candidate · hidden"]
+    L -->|"2–3 frames"| N["Verified track + stable ID"]
+    N --> O["Entered / persisted / exited events"]
+    O --> P["Grounded spatial narrative"]
+    O --> R["Session memory"]
     D --> P
+    D --> R
 ```
-
 ## Why the original path failed
 
 The previous hosted detector used a heavily quantized YOLOS-tiny model, accepted predictions at `0.25`, and treated each frame independently. On the supplied test clip it reported several phones and wine glasses around a seated person's face and chair. Those predictions were then repeated by the narrator as facts. The visible pipeline latency was roughly 527 ms, while the UI sampled only once every 1.8 seconds, producing about 1 result per second.
@@ -61,11 +61,11 @@ A 16×16 luminance signature measures visual change. An unchanged scene reuses v
 
 ### 3. Hardware and precision scheduler
 
-The worker requests a high-performance WebGPU adapter. Recognized NVIDIA and AMD adapters use fp16 weights. Unsupported, software, or missing adapters use the int8 WASM model. If model initialization or inference fails, the dependency-free motion analyzer remains available and the worker reports the actual fallback.
+The worker starts the int8 WASM detector first and reports it ready before attempting acceleration. It then requests a high-performance WebGPU adapter; recognized NVIDIA and AMD adapters receive a best-effort fp16 upgrade. The already-created CPU detector remains active if that upgrade fails. Only failure of the CPU model activates the dependency-free motion fallback.
 
 ### 4. Hardware-adaptive detectors
 
-The GPU path pins `onnx-community/dfine_s_obj365-ONNX` at revision `a61e4cdfe4f9d3188a305d91e37dbf38688ffbb8` for 365 Objects365 categories. The CPU path pins `onnx-community/dfine_n_coco-ONNX` at revision `380d2839c327efaf65dd0fe0c2c10ab7fadd5473` for 80 COCO categories. On the supplied clip, forced-analysis CPU latency dropped from about 2.4 seconds with D-FINE-small to about 0.9 seconds with D-FINE-nano. Both models are served from the same origin as the app; runtime inference makes no model-host or CDN request.
+Both precision paths pin `onnx-community/dfine_n_coco-ONNX` at revision `380d2839c327efaf65dd0fe0c2c10ab7fadd5473` for 80 COCO categories. The int8 graph is the reliability baseline; the fp16 graph is attempted only as a progressive WebGPU enhancement. In installed-Chrome testing, CPU inference correctly identified people and the teddy bear in the supplied clip at roughly 0.3 seconds per analyzed frame. All runtime and model assets are served from the same origin; inference makes no model-host or CDN request.
 
 ### 5. Candidate quality filter
 
@@ -99,7 +99,7 @@ Generative narration must receive verified events and retrieved metadata, never 
 
 ## Performance and quality budgets
 
-| Measure | Hosted GPU target | Hosted CPU target |
+| Measure | WebGPU upgrade target | CPU baseline target |
 | --- | ---: | ---: |
 | Frame sampler | 700 ms, no queue | 700 ms, no queue |
 | Detector p95 | ≤ 600 ms | ≤ 1,500 ms |
@@ -112,7 +112,7 @@ These are acceptance budgets, not claims about every device. The UI reports the 
 
 ## Known boundaries
 
-- D-FINE performs object detection, not action recognition or identity recognition; the CPU fallback has the smaller 80-class COCO vocabulary.
+- D-FINE performs object detection, not action recognition or identity recognition; both browser precision paths share the 80-class COCO vocabulary.
 - A browser-only static deployment cannot provide the same semantic detail as a large server-side vision-language model without a substantial first-load cost.
 - Temporal verification removes transient hallucinations but cannot prove that a consistently wrong classifier label is correct; model evaluation on project-specific clips remains required.
 - The fallback motion analyzer reports movement regions only and is intentionally not presented as semantic object recognition.

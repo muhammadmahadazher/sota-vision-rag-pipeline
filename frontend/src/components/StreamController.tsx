@@ -630,9 +630,9 @@ export const StreamController = React.memo(function StreamController({
             ) : (
               <div className="connection-fields">
                 <div><p className="section-kicker">On-device engine</p><h4>Private browser inference</h4></div>
-                <p className="local-engine-copy">NVIDIA and AMD use the 365-class D-FINE-small fp16 model. CPU/WASM uses a measured 80-class D-FINE-nano int8 fallback for responsive analysis. Both paths suppress duplicate boxes and require repeated evidence before an object can enter the overlay, inventory, narrative, or memory.</p>
+                <p className="local-engine-copy">The pinned 80-class D-FINE-nano detector starts on CPU/WASM so analysis is always available, then safely attempts an fp16 WebGPU upgrade on recognized NVIDIA or AMD hardware. A failed GPU session never disables the active detector. Duplicate boxes are suppressed and repeated evidence is required before an object enters the overlay, inventory, narrative, or memory.</p>
                 <p className="field-help"><ShieldCheck size={14} /> Video frames never leave this browser in On-device mode.</p>
-                <small className="model-revision">GPU · {LOCAL_VISION_MODEL.revision.slice(0, 8)} · CPU · {LOCAL_VISION_MODEL.cpuRevision.slice(0, 8)}</small>
+                <small className="model-revision">Pinned model · {LOCAL_VISION_MODEL.revision.slice(0, 12)} · CPU-first</small>
               </div>
             )}
           </aside>

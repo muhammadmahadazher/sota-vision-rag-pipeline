@@ -9,13 +9,13 @@ Aether Vision RAG is an open-source, privacy-first visual intelligence workspace
 
 **[Open the interactive demo →](https://muhammadmahadazher.github.io/sota-vision-rag-pipeline/)**
 
-The hosted page is locked to real **On-device** inference so an uploaded video can never be routed accidentally to an unavailable localhost API. Dependency-free motion analysis starts immediately; the worker then upgrades to an adaptive D-FINE detector: 365 classes on NVIDIA/AMD WebGPU and a faster 80-class CPU fallback. Multi-frame verification blocks transient predictions from the overlay, narrative, and memory. Frames never leave the device.
+The hosted page is locked to real **On-device** inference so an uploaded video can never be routed accidentally to an unavailable localhost API. Dependency-free motion analysis starts immediately; the pinned 80-class D-FINE detector then starts on CPU/WASM and safely attempts an fp16 WebGPU upgrade on recognized NVIDIA or AMD hardware. Multi-frame verification blocks transient predictions from the overlay, narrative, and memory. Frames never leave the device.
 
 For the implemented pipeline, quality gates, and design boundaries, see **[Architecture](ARCHITECTURE.md)**. For local CPU/GPU installation, diagnostics, and real-video testing, see **[Local setup and hardware verification](LOCAL_SETUP.md)**.
 
 ## Why it is useful
 
-- **Works on GitHub Pages.** A dependency-free browser engine starts immediately, while pinned D-FINE models provide 365-class GPU detection or a measured 80-class CPU fallback with duplicate suppression and temporal verification—no backend, API key, runtime CDN, or model-host request required.
+- **Works on GitHub Pages.** A dependency-free browser engine starts immediately, while a pinned 80-class D-FINE model provides a reliable CPU/WASM baseline plus a safe NVIDIA/AMD WebGPU upgrade with duplicate suppression and temporal verification—no backend, API key, runtime CDN, or model-host request required.
 - **Scales to advanced vision.** YOLO-World v2 adds open-vocabulary Objects365 detection; InsightFace adds private face embeddings for temporal recall.
 - **Remembers scene context.** Qdrant retrieves similar frames instead of treating every image as an isolated event.
 - **Explains what changed.** Gemini synthesis is optional. When it is missing or rate-limited, a deterministic local narrator keeps the application useful.
@@ -140,7 +140,7 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 | --- | ---: | ---: | ---: |
 | Interactive dashboard | ✓ | ✓ | ✓ |
 | Webcam / video ingestion | ✓ | ✓ | ✓ |
-| Verified object detection | 365 GPU / 80 CPU | — | — |
+| Verified object detection | 80 classes | — | — |
 | Motion-region detection | ✓ | ✓ | — |
 | Face localization | — | ✓ | ✓ |
 | Objects365 recognition | — | — | ✓ |
@@ -149,7 +149,7 @@ The frontend keeps a user-entered API token only in tab memory. It is never comm
 | Gemini narration | — | optional | optional |
 | GPU acceleration | NVIDIA/AMD WebGPU | — | NVIDIA CUDA / AMD ROCm |
 
-The on-device worker starts with dependency-free CPU motion analysis, requests a high-performance WebGPU adapter, uses the 365-class D-FINE-small fp16 model on recognized NVIDIA/AMD hardware, and uses the measured 80-class D-FINE-nano int8 model on CPU/WASM if GPU acceleration is unavailable or fails. Candidate boxes must survive score filtering, duplicate suppression, and two or three consistent observations before they can appear or enter memory. Runtime, WebAssembly, and model files are version-pinned and served by the same GitHub Pages deployment. Uploaded frames are never sent to the repository owner or an API.
+The on-device worker starts with dependency-free CPU motion analysis, activates the pinned 80-class D-FINE-nano int8 model on CPU/WASM, and then attempts an fp16 WebGPU upgrade on recognized NVIDIA/AMD hardware. The verified CPU session remains active if the GPU graph cannot initialize, so accelerator support can never remove semantic detection. Candidate boxes must survive score filtering, duplicate suppression, and two or three consistent observations before they can appear or enter memory. Runtime, WebAssembly, and model files are version-pinned and served by the same GitHub Pages deployment. Uploaded frames are never sent to the repository owner or an API.
 
 ## WebSocket API
 

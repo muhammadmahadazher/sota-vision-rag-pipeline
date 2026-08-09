@@ -1,12 +1,10 @@
 import type { DetectedObject } from "@/lib/vision";
 
 export const LOCAL_VISION_MODEL = {
-  id: "onnx-community/dfine_s_obj365-ONNX",
-  revision: "a61e4cdfe4f9d3188a305d91e37dbf38688ffbb8",
-  cpuId: "onnx-community/dfine_n_coco-ONNX",
-  cpuRevision: "380d2839c327efaf65dd0fe0c2c10ab7fadd5473",
-  runtime: "Adaptive D-FINE + temporal verification",
-  workerAsset: "local-vision-worker-v4.js",
+  id: "onnx-community/dfine_n_coco-ONNX",
+  revision: "380d2839c327efaf65dd0fe0c2c10ab7fadd5473",
+  runtime: "CPU-first D-FINE + safe WebGPU upgrade",
+  workerAsset: "local-vision-worker-v5.js",
 } as const;
 
 export interface WorkerDetection {
