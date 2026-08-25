@@ -5,3 +5,6 @@
 ## 2024-07-14 - Test FastAPI endpoints with TestClient
 **Learning:** Testing FastAPI endpoints with `fastapi.testclient.TestClient` requires the `httpx` package, which may need to be installed manually if not present in `requirements.txt`.
 **Action:** When creating tests using `TestClient`, always ensure `httpx` is included in the project's dependencies and update `requirements.txt` if necessary.
+## 2025-02-23 - Unoptimized Qdrant Batch Indexing
+**Learning:** The benchmark script was iterating over vectors to insert them one-by-one via `index_entity`, which generates excessive HTTP/network overhead due to the N+1 query problem. Changing to a single batch insertion with `index_entities` brings indexing time down from over 1 second to ~0.02 seconds for 100 items.
+**Action:** Always prefer bulk/batch API calls like `index_entities` over looping single insertions when dealing with multiple items to reduce latency and overhead.
