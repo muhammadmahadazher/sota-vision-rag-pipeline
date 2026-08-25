@@ -70,6 +70,7 @@ async def process_frames_consumer(
             raw_objects = results.get("objects", [])
             objects, events, temporal_metrics = object_verifier.update(raw_objects)
             faces = results.get("faces", [])
+            public_faces = _public_faces(faces)
             response_metrics = {
                 **results.get("metrics", {}),
                 "temporal": temporal_metrics,
@@ -98,7 +99,7 @@ async def process_frames_consumer(
             if not narrative or now - last_synthesis_time >= settings.synthesis_interval_seconds:
                 metadata = {
                     "objects": objects,
-                    "faces": _public_faces(faces),
+                    "faces": public_faces,
                     "events": events,
                     "metrics": response_metrics,
                 }
@@ -125,7 +126,7 @@ async def process_frames_consumer(
             await websocket.send_json(
                 {
                     "objects": objects,
-                    "faces": _public_faces(faces),
+                    "faces": public_faces,
                     "events": events,
                     "narrative": narrative,
                     "status": "Connected",
