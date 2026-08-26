@@ -192,10 +192,13 @@ class AdvancedVisionPipeline:
             boxes = result.boxes.xyxy.cpu().numpy()
             scores = result.boxes.conf.cpu().numpy()
             labels = result.boxes.cls.cpu().numpy()
-            for box, score, label in zip(boxes, scores, labels):
+            boxes_list = boxes.tolist()
+            scores_list = scores.tolist()
+            labels_list = labels.tolist()
+            for box, score, label in zip(boxes_list, scores_list, labels_list):
                 objects.append(
                     {
-                        "bbox": box.tolist(),
+                        "bbox": box,
                         "label": result.names[int(label)],
                         "confidence": float(score),
                     }

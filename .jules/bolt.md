@@ -8,3 +8,6 @@
 ## 2025-02-23 - Unoptimized Qdrant Batch Indexing
 **Learning:** The benchmark script was iterating over vectors to insert them one-by-one via `index_entity`, which generates excessive HTTP/network overhead due to the N+1 query problem. Changing to a single batch insertion with `index_entities` brings indexing time down from over 1 second to ~0.02 seconds for 100 items.
 **Action:** Always prefer bulk/batch API calls like `index_entities` over looping single insertions when dealing with multiple items to reduce latency and overhead.
+## 2024-05-23 - Suboptimal Array Manipulation in Bounding Box Conversion
+**Learning:** Calling `.tolist()` on individual rows of a NumPy array inside a Python loop (e.g., `for box in boxes: box.tolist()`) introduces significant overhead compared to converting the entire array at once upfront (e.g., `boxes.tolist()`).
+**Action:** When extracting data from NumPy arrays, use vectorized operations like `.tolist()` on the whole array *before* iterating over the elements.
