@@ -56,7 +56,8 @@ async def process_frames_consumer(
     while True:
         data = await queue.get()
         try:
-            frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+            nparr = np.frombuffer(data, np.uint8)
+            frame = await asyncio.to_thread(cv2.imdecode, nparr, cv2.IMREAD_COLOR)
             if frame is None:
                 await websocket.send_json(
                     {
@@ -68,7 +69,8 @@ async def process_frames_consumer(
 
             results = await asyncio.to_thread(vision_pipeline.process_frame, frame)
             raw_objects = results.get("objects", [])
-            objects, events, temporal_metrics = object_verifier.update(raw_objects)
+            objects, events, temporal_metrics = object_verifier.update(
+                raw_objects)
             faces = results.get("faces", [])
             public_faces = _public_faces(faces)
             response_metrics = {
@@ -187,7 +189,8 @@ async def websocket_stream(websocket: WebSocket) -> None:
         while True:
             data = await websocket.receive_bytes()
             if len(data) > max_payload:
-                logger.warning("Closing oversized WebSocket message: %d bytes.", len(data))
+                logger.warning(
+                    "Closing oversized WebSocket message: %d bytes.", len(data))
                 await websocket.close(code=1009, reason="Message too big")
                 break
             if queue.full():
