@@ -8,3 +8,6 @@
 ## 2025-02-23 - Unoptimized Qdrant Batch Indexing
 **Learning:** The benchmark script was iterating over vectors to insert them one-by-one via `index_entity`, which generates excessive HTTP/network overhead due to the N+1 query problem. Changing to a single batch insertion with `index_entities` brings indexing time down from over 1 second to ~0.02 seconds for 100 items.
 **Action:** Always prefer bulk/batch API calls like `index_entities` over looping single insertions when dealing with multiple items to reduce latency and overhead.
+## 2024-08-26 - [Testing Improvements for StreamController]
+**Learning:** When testing WebSocket interactions in React components, ensure the mocked payload matches the exact expected shape required by the application's types (like `AnalysisPacket`). Missing fields (like `bbox` vs `box`, or `frame`) can cause silent errors in child components (like `DetectionOverlay`) that try to process the malformed data.
+**Action:** Always verify the complete type definition of data payloads when mocking network responses in tests, especially when those payloads are passed down to child components that assume strict data shapes.

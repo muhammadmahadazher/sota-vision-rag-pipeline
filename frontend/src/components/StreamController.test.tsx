@@ -106,6 +106,37 @@ describe("StreamController on-device video", () => {
     vi.unstubAllGlobals();
   });
 
+  it("renders default view correctly", () => {
+    render(<StreamController />);
+
+    expect(screen.getByRole("button", { name: "On-device" })).toHaveClass("is-active");
+    expect(screen.getByRole("heading", { name: /Live scene intelligence/i })).toBeInTheDocument();
+  });
+
+  it("starts and stops the camera stream when Self-hosted mode is selected", async () => {
+    const mockGetUserMedia = vi.fn().mockResolvedValue({
+      getTracks: vi.fn().mockReturnValue([{ stop: vi.fn() }]),
+    });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: mockGetUserMedia },
+      configurable: true,
+    });
+
+    render(<StreamController />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Self-hosted" }));
+
+    const useCameraButton = screen.getByRole("button", { name: /Use camera/i });
+    fireEvent.click(useCameraButton);
+
+    await waitFor(() => expect(mockGetUserMedia).toHaveBeenCalled());
+
+    const stopButton = await screen.findByRole("button", { name: /Stop stream/i });
+    fireEvent.click(stopButton);
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Stop stream/i })).not.toBeInTheDocument());
+  });
+
   it("analyzes an uploaded video without opening a WebSocket", async () => {
     const onPacketUpdate = vi.fn();
     const websocket = vi.fn();
@@ -150,6 +181,28 @@ describe("StreamController on-device video", () => {
     expect(FakeWorker.instances.every((worker) =>
       worker.posted.some((message) => message.type === "dispose"),
     )).toBe(true);
+  });
+
+  it("calls onPacketUpdate when analysis packet is received from WebSocket", async () => {
+    const onPacketUpdate = vi.fn();
+    const mockWebSocket = {
+      send: vi.fn(),
+      close: vi.fn(),
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      readyState: 1, // OPEN
+    };
+    vi.stubGlobal("WebSocket", function() { return mockWebSocket; });
+
+    render(<StreamController onPacketUpdate={onPacketUpdate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Self-hosted" }));
+    fireEvent.click(screen.getByRole("button", { name: /Use camera/i }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Stop stream/i })).toBeInTheDocument());
+
+    mockWebSocket.onmessage?.({ data: JSON.stringify({ type: "analysis", timestamp: 12345, frame: { width: 640, height: 480 }, objects: [{ label: "cup", confidence: 0.88, bbox: [10, 10, 50, 50] }] }) } as MessageEvent);
+
+    await waitFor(() => expect(onPacketUpdate).toHaveBeenCalledWith(expect.objectContaining({ objects: expect.arrayContaining([expect.objectContaining({ label: "cup" })]) })));
   });
 
   it("keeps self-hosted processing an explicit separate mode", () => {
