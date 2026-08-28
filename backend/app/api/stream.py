@@ -51,6 +51,9 @@ async def process_frames_consumer(
     rag_engine = websocket.app.state.rag_engine
     last_narrative = ""
     last_synthesis_time = 0.0
+    last_query_time = 0.0
+    cached_historical_context: list[dict[str, Any]] = []
+    cached_qdrant_latency_ms = 0.0
     object_verifier = TemporalObjectVerifier()
 
     while True:
@@ -77,8 +80,6 @@ async def process_frames_consumer(
                 **results.get("metrics", {}),
                 "temporal": temporal_metrics,
             }
-            historical_context: list[dict[str, Any]] = []
-            qdrant_latency_ms = 0.0
             primary_embedding = next(
                 (
                     face.get("embedding")
@@ -90,13 +91,15 @@ async def process_frames_consumer(
             if primary_embedding is None:
                 primary_embedding = results.get("frame_embedding")
 
-            if rag_engine and primary_embedding is not None:
-                historical_context, qdrant_latency_ms = await rag_engine.query_similar(
-                    primary_embedding,
-                    limit=5,
-                )
-
             now = time.monotonic()
+            if rag_engine and primary_embedding is not None:
+                if not cached_historical_context or now - last_query_time >= 1.0:
+                    cached_historical_context, cached_qdrant_latency_ms = await rag_engine.query_similar(
+                        primary_embedding,
+                        limit=5,
+                    )
+                    last_query_time = now
+
             narrative = last_narrative
             if not narrative or now - last_synthesis_time >= settings.synthesis_interval_seconds:
                 metadata = {
@@ -108,7 +111,7 @@ async def process_frames_consumer(
                 if rag_engine:
                     narrative = await rag_engine.synthesize_context(
                         metadata,
-                        historical_context,
+                        cached_historical_context,
                     )
                 else:
                     narrative = "Scene analysis is active; narrative memory is unavailable."
@@ -132,7 +135,7 @@ async def process_frames_consumer(
                     "events": events,
                     "narrative": narrative,
                     "status": "Connected",
-                    "qdrant_latency_ms": round(qdrant_latency_ms, 2),
+                    "qdrant_latency_ms": round(cached_qdrant_latency_ms, 2),
                     "device": getattr(vision_pipeline, "device", "unknown"),
                     "backend": getattr(vision_pipeline, "backend_name", "unknown"),
                     "metrics": response_metrics,
