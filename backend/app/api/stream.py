@@ -186,9 +186,11 @@ async def websocket_stream(websocket: WebSocket) -> None:
     try:
         while True:
             data = await websocket.receive_bytes()
-            if len(data) > max_payload:
-                logger.warning("Closing oversized WebSocket message: %d bytes.", len(data))
-                await websocket.close(code=1009, reason="Message too big")
+
+            # Security Fix: Check payload size to prevent DoS via memory exhaustion
+            if len(data) > MAX_PAYLOAD_SIZE_BYTES:
+                logger.warning(f"Payload too large: {len(data)} bytes. Disconnecting.")
+                await websocket.close(code=1009, reason="Message Too Big")
                 break
             if queue.full():
                 with suppress(asyncio.QueueEmpty):

@@ -38,7 +38,7 @@ async def test_large_payload_is_rejected():
     await websocket_stream(websocket)
 
     websocket.accept.assert_awaited_once()
-    websocket.close.assert_awaited_once_with(code=1009, reason="Message too big")
+    websocket.close.assert_awaited_once_with(code=1009, reason="Message Too Big")
 
 
 @pytest.mark.asyncio
