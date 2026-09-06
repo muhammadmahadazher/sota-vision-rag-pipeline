@@ -631,11 +631,12 @@ export const StreamController = React.memo(function StreamController({
       <div className="vision-toolbar">
         <div><p className="section-kicker">Vision canvas</p><h2>Live scene intelligence</h2></div>
         <div className="toolbar-actions">
-          <div className="mode-switch" aria-label="Analysis mode">
-            <button className={mode === "browser" ? "is-active" : ""} onClick={() => switchMode("browser")}>On-device</button>
+          <div className="mode-switch" role="group" aria-label="Analysis mode">
+            <button className={mode === "browser" ? "is-active" : ""} onClick={() => switchMode("browser")} aria-pressed={mode === "browser"}>On-device</button>
             <button
               className={mode === "backend" ? "is-active" : ""}
               onClick={() => switchMode("backend")}
+              aria-pressed={mode === "backend"}
               disabled={IS_HOSTED_DEMO}
               title={IS_HOSTED_DEMO ? "Run locally to connect the self-hosted API" : "Connect a local or remote Vision API"}
             >
@@ -814,7 +815,7 @@ function SettingToggle({ active, onClick, icon, title, detail }: {
   active: boolean; onClick: () => void; icon: React.ReactNode; title: string; detail: string;
 }) {
   return (
-    <button className="setting-toggle" onClick={onClick}>
+    <button className="setting-toggle" onClick={onClick} role="switch" aria-checked={active}>
       <span>{icon}<span><strong>{title}</strong><small>{detail}</small></span></span>
       <i className={active ? "is-on" : ""} />
     </button>
