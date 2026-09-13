@@ -1,3 +1,6 @@
 ## 2024-05-24 - [process_frames_consumer Test Coverage]
 **Learning:** Adding test coverage for internal exceptions in asynchronous consumer tasks ensures disconnect handling logic works as expected. We used `asyncio.Queue` and `cv2.imencode` to simulate processing errors and validated that the fallback `send_json` executes correctly.
 **Action:** When testing similar async consumer pipelines, decouple network receiving from frame processing, and inject errors via mock side effects to verify error handling paths.
+## 2025-01-20 - Set Discard Early-Exit for O(N*M) Label Intersections
+**Learning:** When comparing a small incoming dataset (like a few labels in a current frame) against a potentially large dataset (like deep historical context), iterating the large dataset to unconditionally build a set in O(N*M) time is wasteful. If the goal is merely to find items in the small set not present in the large set (or vice versa), it is much faster to convert the small dataset to a set, iterate over the large dataset, `.discard()` matches from the small set, and break entirely once the small set is empty.
+**Action:** When filtering new items against historical lists in Python, initialize a set of the *new* items and discard from it while scanning history, rather than building a set of the entire history.
