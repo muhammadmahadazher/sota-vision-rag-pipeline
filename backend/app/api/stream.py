@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import hashlib
 import secrets
 import time
 from contextlib import suppress
@@ -19,10 +20,17 @@ MAX_PAYLOAD_SIZE_BYTES = 5 * 1024 * 1024
 
 
 def token_is_valid(token: str | None, expected_token: str | None) -> bool:
-    """Authentication is opt-in for local use and constant-time when configured."""
+    """Authentication is mandatory and constant-time."""
     if not expected_token:
-        return True
-    return bool(token) and secrets.compare_digest(token, expected_token)
+        return False
+
+    val_token = token if token is not None else ""
+    val_expected = expected_token if expected_token is not None else ""
+
+    hash_token = hashlib.sha256(val_token.encode('utf-8')).digest()
+    hash_expected = hashlib.sha256(val_expected.encode('utf-8')).digest()
+
+    return secrets.compare_digest(hash_token, hash_expected)
 
 
 def origin_is_allowed(origin: str | None, allowed_origins: tuple[str, ...]) -> bool:

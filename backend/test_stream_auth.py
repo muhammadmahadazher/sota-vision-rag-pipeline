@@ -28,13 +28,14 @@ def make_settings(**changes) -> Settings:
 
 
 def test_token_and_origin_policy_helpers():
-    assert token_is_valid(None, None)
+    assert not token_is_valid(None, None)
     assert token_is_valid("correct", "correct")
     assert not token_is_valid(None, "correct")
     assert not token_is_valid("wrong", "correct")
     assert origin_is_allowed(None, ("http://localhost:3000",))
     assert origin_is_allowed("https://example.com", ("*",))
-    assert not origin_is_allowed("https://evil.example", ("https://example.com",))
+    assert not origin_is_allowed(
+        "https://evil.example", ("https://example.com",))
 
 
 @pytest.mark.asyncio
@@ -62,11 +63,11 @@ async def test_websocket_rejects_invalid_token():
 @pytest.mark.asyncio
 async def test_websocket_rejects_disallowed_origin():
     websocket = AsyncMock()
-    websocket.query_params = {}
+    websocket.query_params = {"token": "correct"}
     websocket.headers = {"origin": "https://evil.example"}
     websocket.app = SimpleNamespace(
         state=SimpleNamespace(
-            settings=make_settings(),
+            settings=make_settings(api_token="correct"),
             vision_pipeline=MagicMock(),
             rag_engine=None,
         )
