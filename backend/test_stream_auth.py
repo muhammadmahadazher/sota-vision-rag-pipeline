@@ -32,8 +32,8 @@ def test_token_and_origin_policy_helpers():
     assert token_is_valid("correct", "correct")
     assert not token_is_valid(None, "correct")
     assert not token_is_valid("wrong", "correct")
-    assert origin_is_allowed(None, ("http://localhost:3000",))
-    assert origin_is_allowed("https://example.com", ("*",))
+    assert not origin_is_allowed(None, ("http://localhost:3000",))
+    assert not origin_is_allowed("https://example.com", ("*",))
     assert not origin_is_allowed("https://evil.example", ("https://example.com",))
 
 

@@ -25,7 +25,7 @@ async def test_large_payload_is_rejected():
     )
     websocket = AsyncMock()
     websocket.query_params = {}
-    websocket.headers = {}
+    websocket.headers = {'origin': 'http://localhost:3000'}
     websocket.receive_bytes.return_value = b"x" * 17
     websocket.app = SimpleNamespace(
         state=SimpleNamespace(
@@ -46,7 +46,7 @@ async def test_unavailable_pipeline_is_rejected_before_accept():
     settings = Settings.from_env()
     websocket = AsyncMock()
     websocket.query_params = {}
-    websocket.headers = {}
+    websocket.headers = {'origin': 'http://localhost:3000'}
     websocket.app = SimpleNamespace(
         state=SimpleNamespace(
             settings=settings,
