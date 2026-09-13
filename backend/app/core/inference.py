@@ -189,13 +189,11 @@ class AdvancedVisionPipeline:
         detections = self.detector.predict(frame, conf=0.25, verbose=False)
         objects: list[dict[str, Any]] = []
         for result in detections:
-            boxes = result.boxes.xyxy.cpu().numpy()
-            scores = result.boxes.conf.cpu().numpy()
-            labels = result.boxes.cls.cpu().numpy()
-            boxes_list = boxes.tolist()
-            scores_list = scores.tolist()
-            labels_list = labels.tolist()
-            for box, score, label in zip(boxes_list, scores_list, labels_list):
+            for box, score, label in zip(
+                result.boxes.xyxy.tolist(),
+                result.boxes.conf.tolist(),
+                result.boxes.cls.tolist()
+            ):
                 objects.append(
                     {
                         "bbox": box,
