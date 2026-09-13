@@ -27,8 +27,8 @@ def token_is_valid(token: str | None, expected_token: str | None) -> bool:
 
 def origin_is_allowed(origin: str | None, allowed_origins: tuple[str, ...]) -> bool:
     if not origin:
-        return True
-    return "*" in allowed_origins or origin in allowed_origins
+        return False
+    return origin in allowed_origins
 
 
 def _public_faces(faces: list[dict[str, Any]]) -> list[dict[str, Any]]:
