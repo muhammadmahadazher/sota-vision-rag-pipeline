@@ -31,11 +31,11 @@ def test_lite_pipeline_validates_frames_and_detects_motion():
 def test_advanced_pipeline_structures_detector_and_face_results():
     detector = MagicMock()
     detection = MagicMock()
-    detection.boxes.xyxy.cpu.return_value.numpy.return_value = np.array(
-        [[10, 20, 100, 200]]
-    )
-    detection.boxes.conf.cpu.return_value.numpy.return_value = np.array([0.95])
-    detection.boxes.cls.cpu.return_value.numpy.return_value = np.array([0])
+
+    detection.boxes.xyxy.tolist.return_value = [[10.0, 20.0, 100.0, 200.0]]
+    detection.boxes.conf.tolist.return_value = [0.95]
+    detection.boxes.cls.tolist.return_value = [0]
+
     detection.names = {0: "person"}
     detector.predict.return_value = [detection]
 
@@ -60,7 +60,8 @@ def test_advanced_pipeline_structures_detector_and_face_results():
         yaml=MagicMock(),
     ), patch.object(AdvancedVisionPipeline, "_load_objects365_names", return_value=None):
         pipeline = VisionPipeline(mode="advanced")
-        result = pipeline.process_frame(np.zeros((240, 320, 3), dtype=np.uint8))
+        result = pipeline.process_frame(
+            np.zeros((240, 320, 3), dtype=np.uint8))
 
     assert result["objects"][0]["label"] == "person"
     assert result["objects"][0]["confidence"] == pytest.approx(0.95)
