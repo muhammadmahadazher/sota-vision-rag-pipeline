@@ -62,12 +62,7 @@ class LiteVisionPipeline:
         if self._face_cascade.empty():
             logger.warning("OpenCV face cascade is unavailable; lite face detection is disabled.")
 
-    def process_frame(self, frame: np.ndarray) -> dict[str, Any]:
-        if not isinstance(frame, np.ndarray) or frame.ndim != 3 or frame.size == 0:
-            raise ValueError("Expected a non-empty BGR image frame.")
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (7, 7), 0)
+    def _detect_faces(self, gray: np.ndarray) -> list[dict[str, Any]]:
         faces: list[dict[str, Any]] = []
         if not self._face_cascade.empty():
             detected = self._face_cascade.detectMultiScale(
@@ -85,6 +80,15 @@ class LiteVisionPipeline:
                         "landmarks": None,
                     }
                 )
+        return faces
+
+    def process_frame(self, frame: np.ndarray) -> dict[str, Any]:
+        if not isinstance(frame, np.ndarray) or frame.ndim != 3 or frame.size == 0:
+            raise ValueError("Expected a non-empty BGR image frame.")
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (7, 7), 0)
+        faces = self._detect_faces(gray)
 
         objects: list[dict[str, Any]] = []
         if self._previous_gray is not None and self._previous_gray.shape == gray.shape:
