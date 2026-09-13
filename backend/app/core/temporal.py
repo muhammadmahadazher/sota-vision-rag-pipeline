@@ -95,14 +95,28 @@ class TemporalObjectVerifier:
         # most confident box first to avoid preserving weaker duplicates.
         validated.sort(key=lambda item: item["confidence"], reverse=True)
         candidates: list[dict[str, Any]] = []
+        existing_boxes_by_label: dict[str, list[list[float]]] = {}
         for candidate in validated:
-            if any(
-                existing["label"] == candidate["label"]
-                and _iou(existing["bbox"], candidate["bbox"]) >= 0.5
-                for existing in candidates
-            ):
+            c_label = candidate["label"]
+            c_bbox = candidate["bbox"]
+
+            overlap = False
+            existing_bboxes = existing_boxes_by_label.get(c_label)
+            if existing_bboxes:
+                for existing_bbox in existing_bboxes:
+                    if _iou(existing_bbox, c_bbox) >= 0.5:
+                        overlap = True
+                        break
+
+            if overlap:
                 continue
+
             candidates.append(candidate)
+            if existing_bboxes is None:
+                existing_boxes_by_label[c_label] = [c_bbox]
+            else:
+                existing_bboxes.append(c_bbox)
+
             if len(candidates) >= 32:
                 break
         return candidates
@@ -150,13 +164,15 @@ class TemporalObjectVerifier:
             matched_tracks.add(track_id)
             matched_candidates.add(candidate_index)
             track.bbox = _blend_box(track.bbox, candidate["bbox"])
-            track.confidence = track.confidence * 0.35 + candidate["confidence"] * 0.65
+            track.confidence = track.confidence * \
+                0.35 + candidate["confidence"] * 0.65
             track.hits += 1
             track.misses = 0
             required_hits = 3 if track.label in AMBIGUOUS_LABELS else 2
             if not track.stable and track.hits >= required_hits:
                 track.stable = True
-                events.append({"type": "entered", "label": track.label, "track_id": track_id})
+                events.append(
+                    {"type": "entered", "label": track.label, "track_id": track_id})
 
         for index, candidate in enumerate(candidates):
             if index in matched_candidates:
@@ -180,7 +196,8 @@ class TemporalObjectVerifier:
             if should_remove:
                 del self._tracks[track_id]
                 if track.stable:
-                    events.append({"type": "exited", "label": track.label, "track_id": track_id})
+                    events.append(
+                        {"type": "exited", "label": track.label, "track_id": track_id})
 
         metrics = {
             "raw_detections": len(raw_detections),
