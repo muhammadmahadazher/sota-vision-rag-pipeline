@@ -114,3 +114,9 @@ async def test_vector_dimension_is_validated():
     manager.qdrant_client = qdrant
     with pytest.raises(ValueError, match="512-dimensional"):
         await manager.index_entity([0.1] * 12, {})
+
+@pytest.mark.asyncio
+async def test_index_entities_length_mismatch_is_validated():
+    manager = RAGManager(make_settings())
+    with pytest.raises(ValueError, match="vectors and metadatas must contain the same number of entries."):
+        await manager.index_entities([[0.1] * 512, [0.1] * 512], [{"label": "test"}])
