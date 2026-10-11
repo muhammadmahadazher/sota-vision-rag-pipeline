@@ -83,7 +83,7 @@ class RAGManager:
             self.last_error = f"Qdrant: {exc}"
             if self.settings.rag_strict:
                 raise
-            logger.warning("Qdrant unavailable; continuing without vector memory: %s", exc)
+            logger.warning("Qdrant unavailable; continuing without vector memory: %s", exc, exc_info=True)
 
     def _initialize_gemini(self) -> None:
         if not self.settings.gemini_api_key:
@@ -96,7 +96,7 @@ class RAGManager:
             self.last_error = f"Gemini: {exc}"
             if self.settings.rag_strict:
                 raise
-            logger.warning("Gemini unavailable; continuing with local narration: %s", exc)
+            logger.warning("Gemini unavailable; continuing with local narration: %s", exc, exc_info=True)
 
     async def query_similar(
         self,
@@ -120,7 +120,7 @@ class RAGManager:
             return payloads, (time.perf_counter() - started) * 1000
         except Exception as exc:
             self.last_error = f"Qdrant query: {exc}"
-            logger.warning("Vector recall failed: %s", exc)
+            logger.warning("Vector recall failed: %s", exc, exc_info=True)
             return [], (time.perf_counter() - started) * 1000
 
     async def index_entity(
@@ -154,7 +154,7 @@ class RAGManager:
             return True
         except Exception as exc:
             self.last_error = f"Qdrant index: {exc}"
-            logger.warning("Vector indexing failed: %s", exc)
+            logger.warning("Vector indexing failed: %s", exc, exc_info=True)
             return False
 
     async def synthesize_context(
@@ -189,7 +189,7 @@ class RAGManager:
             return text or fallback
         except Exception as exc:
             self.last_error = f"Gemini synthesis: {exc}"
-            logger.warning("Gemini synthesis failed; using local narrative: %s", exc)
+            logger.warning("Gemini synthesis failed; using local narrative: %s", exc, exc_info=True)
             return fallback
 
     @staticmethod
