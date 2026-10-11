@@ -171,7 +171,10 @@ async def websocket_stream(websocket: WebSocket) -> None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
         return
     if not origin_is_allowed(origin, settings.allowed_origins):
-        logger.warning("Rejected WebSocket origin: %s", origin)
+        logger.warning(
+            "Rejected WebSocket origin: %s",
+            origin.replace('\r', '').replace('\n', ''),
+        )
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origin not allowed")
         return
     if getattr(websocket.app.state, "vision_pipeline", None) is None:
