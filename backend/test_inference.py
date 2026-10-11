@@ -32,9 +32,7 @@ def test_advanced_pipeline_structures_detector_and_face_results():
     detector = MagicMock()
     detection = MagicMock()
 
-    detection.boxes.xyxy.tolist.return_value = [[10.0, 20.0, 100.0, 200.0]]
-    detection.boxes.conf.tolist.return_value = [0.95]
-    detection.boxes.cls.tolist.return_value = [0]
+    detection.boxes.data.tolist.return_value = [[10.0, 20.0, 100.0, 200.0, 0.95, 0]]
 
     detection.names = {0: "person"}
     detector.predict.return_value = [detection]
