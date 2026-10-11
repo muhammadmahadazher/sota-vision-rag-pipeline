@@ -71,4 +71,25 @@ describe("buildLocalNarrative", () => {
       ]),
     ).toContain("No object has yet been confirmed");
   });
+
+  it("includes newly entered objects in the narrative", () => {
+    const narrative = buildLocalNarrative(
+      [{ bbox: [0, 0, 1, 1] as [number, number, number, number], label: "person", confidence: 0.9 }],
+      [
+        { type: "entered", label: "dog", trackId: "t1" },
+        { type: "entered", label: "cat", trackId: "t2" }
+      ]
+    );
+
+    expect(narrative).toContain("Newly confirmed: dog and cat.");
+  });
+
+  it("includes exited objects when there are no confident objects", () => {
+    const narrative = buildLocalNarrative(
+      [],
+      [{ type: "exited", label: "person", trackId: "t3" }]
+    );
+
+    expect(narrative).toContain("person left the verified view.");
+  });
 });
