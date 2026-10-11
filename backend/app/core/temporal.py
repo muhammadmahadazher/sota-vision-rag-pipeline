@@ -1,6 +1,5 @@
 """Session-scoped temporal verification for detector output."""
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any

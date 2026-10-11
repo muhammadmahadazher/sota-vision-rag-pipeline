@@ -1,0 +1,4 @@
+🎯 **What:** Removed the unused `from __future__ import annotations` import in `backend/app/core/temporal.py`.
+💡 **Why:** Removing unused imports reduces clutter, potential confusion, and keeps the code clean.
+✅ **Verification:** Ran the full backend test suite via `pytest` and confirmed all tests pass without regressions.
+✨ **Result:** Improved maintainability by removing unnecessary, dead code.
