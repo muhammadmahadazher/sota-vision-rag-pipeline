@@ -202,34 +202,33 @@ class AdvancedVisionPipeline:
                     }
                 )
 
-        faces = []
-        for face in self.face_analysis.get(frame):
-            faces.append(
-                {
-                    "bbox": face.bbox.tolist(),
-                    "confidence": float(face.det_score),
-                    "embedding": (
-                        face.embedding.tolist()
-                        if getattr(face, "embedding", None) is not None
-                        else None
-                    ),
-                    "landmarks": (
-                        face.landmark_2d_106.tolist()
-                        if getattr(face, "landmark_2d_106", None) is not None
-                        else None
-                    ),
-                    "gender": (
-                        int(face.gender)
-                        if getattr(face, "gender", None) is not None
-                        else None
-                    ),
-                    "age": (
-                        int(face.age)
-                        if getattr(face, "age", None) is not None
-                        else None
-                    ),
-                }
-            )
+        faces = [
+            {
+                "bbox": face.bbox.tolist(),
+                "confidence": float(face.det_score),
+                "embedding": (
+                    face.embedding.tolist()
+                    if getattr(face, "embedding", None) is not None
+                    else None
+                ),
+                "landmarks": (
+                    face.landmark_2d_106.tolist()
+                    if getattr(face, "landmark_2d_106", None) is not None
+                    else None
+                ),
+                "gender": (
+                    int(face.gender)
+                    if getattr(face, "gender", None) is not None
+                    else None
+                ),
+                "age": (
+                    int(face.age)
+                    if getattr(face, "age", None) is not None
+                    else None
+                ),
+            }
+            for face in self.face_analysis.get(frame)
+        ]
         return {
             "objects": objects,
             "faces": faces,
