@@ -2,18 +2,31 @@ import json
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
+from enum import Enum
 from typing import Any
+
+
+class HardwareVendor(str, Enum):
+    CPU = "CPU"
+    NVIDIA = "NVIDIA"
+    AMD = "AMD"
+
+
+class HardwareRuntime(str, Enum):
+    CPU = "CPU"
+    CUDA = "NVIDIA GPU · CUDA"
+    ROCM = "AMD GPU · ROCm"
 
 
 @dataclass(frozen=True)
 class HardwareSelection:
     torch_device: str
-    vendor: str
+    vendor: HardwareVendor
     name: str
-    runtime: str
+    runtime: HardwareRuntime
     accelerated: bool
     fallback_reason: str | None = None
-    detected_vendor: str | None = None
+    detected_vendor: HardwareVendor | None = None
     detected_name: str | None = None
 
     def as_health_payload(self) -> dict[str, Any]:
@@ -22,24 +35,27 @@ class HardwareSelection:
 
 def cpu_hardware(
     reason: str | None = None,
-    detected_accelerator: tuple[str, str] | None = None,
+    detected_accelerator: tuple[HardwareVendor, str] | None = None,
 ) -> HardwareSelection:
     return HardwareSelection(
         torch_device="cpu",
-        vendor="CPU",
+        vendor=HardwareVendor.CPU,
         name="System CPU",
-        runtime="CPU",
+        runtime=HardwareRuntime.CPU,
         accelerated=False,
         fallback_reason=reason,
-        detected_vendor=detected_accelerator[0] if detected_accelerator else None,
-        detected_name=detected_accelerator[1] if detected_accelerator else None,
+        detected_vendor=(detected_accelerator[0]
+                         if detected_accelerator else None),
+        detected_name=(detected_accelerator[1]
+                       if detected_accelerator else None),
     )
 
 
-def discover_system_accelerator() -> tuple[str, str] | None:
+def discover_system_accelerator() -> tuple[HardwareVendor, str] | None:
     probes = (
-        ("NVIDIA", ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"]),
-        ("AMD", ["rocm-smi", "--showproductname"]),
+        (HardwareVendor.NVIDIA, ["nvidia-smi",
+         "--query-gpu=name", "--format=csv,noheader"]),
+        (HardwareVendor.AMD, ["rocm-smi", "--showproductname"]),
     )
     for vendor, command in probes:
         executable = shutil.which(command[0])
@@ -68,11 +84,12 @@ def discover_system_accelerator() -> tuple[str, str] | None:
 
 def select_torch_hardware(
     torch_module: Any,
-    system_accelerator: tuple[str, str] | None = None,
+    system_accelerator: tuple[HardwareVendor, str] | None = None,
 ) -> HardwareSelection:
     if torch_module is None:
         reason = (
-            f"{system_accelerator[0]} GPU detected, but PyTorch is not installed."
+            f"{system_accelerator[0]} GPU detected, "
+            "but PyTorch is not installed."
             if system_accelerator
             else "PyTorch is not installed."
         )
@@ -97,20 +114,20 @@ def select_torch_hardware(
         if is_amd:
             return HardwareSelection(
                 torch_device="cuda:0",
-                vendor="AMD",
+                vendor=HardwareVendor.AMD,
                 name=name,
-                runtime="AMD GPU · ROCm",
+                runtime=HardwareRuntime.ROCM,
                 accelerated=True,
-                detected_vendor="AMD",
+                detected_vendor=HardwareVendor.AMD,
                 detected_name=name,
             )
         return HardwareSelection(
             torch_device="cuda:0",
-            vendor="NVIDIA",
+            vendor=HardwareVendor.NVIDIA,
             name=name,
-            runtime="NVIDIA GPU · CUDA",
+            runtime=HardwareRuntime.CUDA,
             accelerated=True,
-            detected_vendor="NVIDIA",
+            detected_vendor=HardwareVendor.NVIDIA,
             detected_name=name,
         )
     except Exception as exc:
@@ -126,11 +143,13 @@ def detect_installed_hardware() -> HardwareSelection:
         import torch
     except ImportError:
         return cpu_hardware(
-            "PyTorch is not installed; install the advanced profile for GPU inference.",
+            "PyTorch is not installed; install the advanced "
+            "profile for GPU inference.",
             system_accelerator,
         )
     return select_torch_hardware(torch, system_accelerator)
 
 
 if __name__ == "__main__":
-    print(json.dumps(detect_installed_hardware().as_health_payload(), indent=2))
+    payload = detect_installed_hardware().as_health_payload()
+    print(json.dumps(payload, indent=2))
