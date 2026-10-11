@@ -5,3 +5,6 @@
 ## 2026-09-13 - Optimize PyTorch tensor to Python list conversion
 **Learning:** Converting PyTorch tensors (like Ultralytics detection boxes) to NumPy arrays and then to Python lists via `.cpu().numpy().tolist()` allocates unnecessary intermediate objects. PyTorch's native `.tolist()` is much more efficient, automatically handling device-to-host transfers and constructing the nested lists directly.
 **Action:** When working with PyTorch outputs that need to be serialized or zipped in pure Python, call `.tolist()` directly on the tensor instead of routing through NumPy.
+## 2026-10-11 - Prevent Gitignore conflicts with frontend src/lib
+**Learning:** Python-related generic `lib/` in root `.gitignore` can conflict with frontend `src/lib/` directory, causing newly added files to be ignored.
+**Action:** Restrict root Python `lib/` gitignore to `/lib/` to avoid impacting nested `lib` directories in other projects.
