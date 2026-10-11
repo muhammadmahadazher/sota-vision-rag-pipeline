@@ -139,9 +139,8 @@ class RAGManager:
             raise ValueError("vectors and metadatas must contain the same number of entries.")
         if not vectors or not self.qdrant_client:
             return False
-        for vector in vectors:
-            if len(vector) != self.vector_size:
-                raise ValueError(f"Expected {self.vector_size}-dimensional face embeddings.")
+        if any(len(vector) != self.vector_size for vector in vectors):
+            raise ValueError(f"Expected {self.vector_size}-dimensional face embeddings.")
         try:
             await self.qdrant_client.upsert(
                 collection_name=self.collection_name,
