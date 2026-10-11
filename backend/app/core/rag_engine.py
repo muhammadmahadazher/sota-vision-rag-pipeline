@@ -230,14 +230,15 @@ class RAGManager:
                 else f"{motion} " + ("area is" if motion == 1 else "areas are") + " showing motion."
             )
 
-        recalled_labels: set[str] = set()
-        for moment in historical_context:
-            for item in moment.get("objects", []) if isinstance(moment, dict) else []:
-                if isinstance(item, dict) and item.get("label"):
-                    recalled_labels.add(str(item["label"]).lower())
+        recalled_labels: set[str] = {
+            str(item["label"]).lower()
+            for moment in historical_context if isinstance(moment, dict)
+            for item in (moment.get("objects") or [])
+            if isinstance(item, dict) and item.get("label")
+        }
         new_labels = [label for label in counts if label not in recalled_labels]
         if historical_context and new_labels:
-            return f"{opening} New since the recalled moments: {'', ''.join(new_labels[:3])}."
+            return f"{opening} New since the recalled moments: {', '.join(new_labels[:3])}."
         if historical_context:
             return f"{opening} The scene is broadly consistent with related recalled moments."
         return opening
